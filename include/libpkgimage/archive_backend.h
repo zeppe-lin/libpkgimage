@@ -12,8 +12,9 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
 
-#include <libpkgimage/package_image.h>
+#include <libpkgimage/package_archive.h>
 
 namespace pkgimage {
 
@@ -22,7 +23,7 @@ namespace pkgimage {
  *
  * Implementations decode an archive transport and emit the same normalized
  * package_image model.  Archive libraries are therefore replaceable without
- * changing the public package-image semantics.
+ * changing package-image or payload-replay semantics.
  */
 class archive_backend {
 public:
@@ -32,14 +33,25 @@ public:
   virtual ~archive_backend() = default;
 
   /*!
-   * \brief Read and normalize a package archive image.
-   * \param filename Package archive to inspect.
-   * \return Ordered, validated package image.
-   * \throws archive_error for backend, format, or I/O failures.
+   * \brief Open, inspect, and retain a package archive source.
+   * \param filename Regular package archive file to open.
+   * \return Stable package archive with normalized image and payload access.
+   * \throws archive_error for source, backend, format, or I/O failures.
    * \throws path_error or manifest_error for invalid package contents.
    */
-  [[nodiscard]] virtual package_image
-  inspect(const std::filesystem::path& filename) const = 0;
+  [[nodiscard]] virtual std::unique_ptr<package_archive>
+  open(const std::filesystem::path& filename) const = 0;
+
+  /*!
+   * \brief Inspect a package archive without retaining payload access.
+   * \param filename Package archive to inspect.
+   * \return Ordered, validated package image.
+   *
+   * This convenience operation opens the archive and copies its immutable
+   * image before releasing the stable source handle.
+   */
+  [[nodiscard]] package_image
+  inspect(const std::filesystem::path& filename) const;
 };
 
 } // namespace pkgimage

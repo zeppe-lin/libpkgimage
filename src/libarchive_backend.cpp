@@ -9,15 +9,68 @@
 #include <archive.h>
 #include <archive_entry.h>
 
+#include <algorithm>
+#include <array>
+#include <cerrno>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 namespace pkgimage {
 namespace {
+
+class fd_handle final {
+public:
+  explicit fd_handle(int fd = -1) noexcept
+      : fd_(fd)
+  {
+  }
+
+  ~fd_handle()
+  {
+    if (fd_ != -1)
+      close(fd_);
+  }
+
+  fd_handle(const fd_handle&) = delete;
+  fd_handle& operator=(const fd_handle&) = delete;
+
+  fd_handle(fd_handle&& other) noexcept
+      : fd_(other.fd_)
+  {
+    other.fd_ = -1;
+  }
+
+  fd_handle& operator=(fd_handle&& other) noexcept
+  {
+    if (this == &other)
+      return *this;
+
+    if (fd_ != -1)
+      close(fd_);
+
+    fd_ = other.fd_;
+    other.fd_ = -1;
+    return *this;
+  }
+
+  [[nodiscard]] int get() const noexcept
+  {
+    return fd_;
+  }
+
+private:
+  int fd_;
+};
 
 struct archive_deleter final {
   void operator()(archive* handle) const noexcept
@@ -28,6 +81,102 @@ struct archive_deleter final {
 };
 
 using archive_handle = std::unique_ptr<archive, archive_deleter>;
+
+struct source_time final {
+  std::int64_t seconds;
+  std::int64_t nanoseconds;
+};
+
+struct source_stamp final {
+  std::uint64_t device;
+  std::uint64_t inode;
+  std::uint64_t size;
+  source_time mtime;
+  source_time ctime;
+};
+
+[[nodiscard]] bool
+operator==(const source_time& lhs, const source_time& rhs) noexcept
+{
+  return lhs.seconds == rhs.seconds && lhs.nanoseconds == rhs.nanoseconds;
+}
+
+[[nodiscard]] bool
+operator==(const source_stamp& lhs, const source_stamp& rhs) noexcept
+{
+  return lhs.device == rhs.device
+      && lhs.inode == rhs.inode
+      && lhs.size == rhs.size
+      && lhs.mtime == rhs.mtime
+      && lhs.ctime == rhs.ctime;
+}
+
+[[nodiscard]] source_stamp
+read_source_stamp(int fd, const std::filesystem::path& filename)
+{
+  struct stat status {};
+  int result;
+  do
+  {
+    result = fstat(fd, &status);
+  }
+  while (result == -1 && errno == EINTR);
+
+  if (result == -1)
+  {
+    throw archive_error(
+        "could not inspect package archive '" + filename.string()
+        + "': " + std::strerror(errno));
+  }
+
+  if (!S_ISREG(status.st_mode))
+  {
+    throw archive_error(
+        "package archive is not a regular file: '"
+        + filename.string() + "'");
+  }
+
+  if (status.st_size < 0)
+  {
+    throw archive_error(
+        "package archive has a negative size: '"
+        + filename.string() + "'");
+  }
+
+  return source_stamp {
+    static_cast<std::uint64_t>(status.st_dev),
+    static_cast<std::uint64_t>(status.st_ino),
+    static_cast<std::uint64_t>(status.st_size),
+    source_time {
+      static_cast<std::int64_t>(status.st_mtim.tv_sec),
+      static_cast<std::int64_t>(status.st_mtim.tv_nsec),
+    },
+    source_time {
+      static_cast<std::int64_t>(status.st_ctim.tv_sec),
+      static_cast<std::int64_t>(status.st_ctim.tv_nsec),
+    },
+  };
+}
+
+[[nodiscard]] fd_handle
+open_source(const std::filesystem::path& filename)
+{
+  int fd;
+  do
+  {
+    fd = ::open(filename.c_str(), O_RDONLY | O_CLOEXEC);
+  }
+  while (fd == -1 && errno == EINTR);
+
+  if (fd == -1)
+  {
+    throw archive_error(
+        "could not open package archive '" + filename.string()
+        + "': " + std::strerror(errno));
+  }
+
+  return fd_handle(fd);
+}
 
 [[noreturn]] void
 backend_error(archive* handle, const std::filesystem::path& filename,
@@ -53,6 +202,93 @@ enable_reader(archive* handle, int status, const char* feature)
   if (detail != nullptr)
     message << ": " << detail;
   throw archive_error(message.str());
+}
+
+struct reader_context final {
+  int fd;
+  std::uint64_t size;
+  std::uint64_t offset = 0;
+  std::array<unsigned char, 64U * 1024U> buffer {};
+};
+
+la_ssize_t
+read_source(archive* handle, void* client_data, const void** buffer)
+{
+  auto& source = *static_cast<reader_context*>(client_data);
+  if (source.offset >= source.size)
+  {
+    *buffer = source.buffer.data();
+    return 0;
+  }
+
+  const std::uint64_t remaining = source.size - source.offset;
+  const std::size_t request = static_cast<std::size_t>(
+      std::min<std::uint64_t>(remaining, source.buffer.size()));
+
+  ssize_t count;
+  do
+  {
+    count = pread(
+        source.fd, source.buffer.data(), request,
+        static_cast<off_t>(source.offset));
+  }
+  while (count == -1 && errno == EINTR);
+
+  if (count == -1)
+  {
+    archive_set_error(handle, errno, "could not read package archive source");
+    return -1;
+  }
+
+  if (count == 0)
+  {
+    archive_set_error(handle, EIO, "package archive source was truncated");
+    return -1;
+  }
+
+  source.offset += static_cast<std::uint64_t>(count);
+  *buffer = source.buffer.data();
+  return static_cast<la_ssize_t>(count);
+}
+
+[[nodiscard]] archive_handle
+open_reader(reader_context& source,
+            const std::filesystem::path& filename)
+{
+  archive_handle handle(archive_read_new());
+  if (!handle)
+    throw archive_error("could not allocate libarchive reader");
+
+  enable_reader(
+      handle.get(), archive_read_support_filter_none(handle.get()),
+      "none filter");
+  enable_reader(
+      handle.get(), archive_read_support_filter_gzip(handle.get()),
+      "gzip filter");
+  enable_reader(
+      handle.get(), archive_read_support_filter_bzip2(handle.get()),
+      "bzip2 filter");
+  enable_reader(
+      handle.get(), archive_read_support_filter_xz(handle.get()),
+      "xz filter");
+  enable_reader(
+      handle.get(), archive_read_support_filter_lzip(handle.get()),
+      "lzip filter");
+  enable_reader(
+      handle.get(), archive_read_support_filter_zstd(handle.get()),
+      "zstd filter");
+  enable_reader(
+      handle.get(), archive_read_support_format_tar(handle.get()),
+      "tar format");
+
+  if (archive_read_open(
+          handle.get(), &source, nullptr, read_source, nullptr)
+      != ARCHIVE_OK)
+  {
+    backend_error(handle.get(), filename, "could not open package archive");
+  }
+
+  return handle;
 }
 
 std::uint64_t
@@ -152,43 +388,12 @@ normalize_entry(archive_entry* raw)
   return entry;
 }
 
-} // namespace
-
-package_image
-libarchive_backend::inspect(const std::filesystem::path& filename) const
+[[nodiscard]] package_image
+inspect_source(int fd, const source_stamp& stamp,
+               const std::filesystem::path& filename)
 {
-  archive_handle handle(archive_read_new());
-  if (!handle)
-    throw archive_error("could not allocate libarchive reader");
-
-  enable_reader(
-      handle.get(), archive_read_support_filter_none(handle.get()),
-      "none filter");
-  enable_reader(
-      handle.get(), archive_read_support_filter_gzip(handle.get()),
-      "gzip filter");
-  enable_reader(
-      handle.get(), archive_read_support_filter_bzip2(handle.get()),
-      "bzip2 filter");
-  enable_reader(
-      handle.get(), archive_read_support_filter_xz(handle.get()),
-      "xz filter");
-  enable_reader(
-      handle.get(), archive_read_support_filter_lzip(handle.get()),
-      "lzip filter");
-  enable_reader(
-      handle.get(), archive_read_support_filter_zstd(handle.get()),
-      "zstd filter");
-  enable_reader(
-      handle.get(), archive_read_support_format_tar(handle.get()),
-      "tar format");
-
-  constexpr std::size_t block_size = 20U * 512U;
-  if (archive_read_open_filename(handle.get(), filename.c_str(), block_size)
-      != ARCHIVE_OK)
-  {
-    backend_error(handle.get(), filename, "could not open package archive");
-  }
+  reader_context source {fd, stamp.size};
+  archive_handle handle = open_reader(source, filename);
 
   std::vector<package_entry> entries;
   archive_entry* raw = nullptr;
@@ -212,6 +417,157 @@ libarchive_backend::inspect(const std::filesystem::path& filename) const
     backend_error(handle.get(), filename, "could not close package archive");
 
   return package_image(std::move(entries));
+}
+
+void
+verify_source(int fd, const source_stamp& expected,
+              const std::filesystem::path& filename)
+{
+  if (!(read_source_stamp(fd, filename) == expected))
+  {
+    throw source_changed_error(
+        "package archive source changed after inspection: '"
+        + filename.string() + "'");
+  }
+}
+
+class libarchive_package final : public package_archive {
+public:
+  libarchive_package(std::filesystem::path filename,
+                     fd_handle source,
+                     source_stamp stamp,
+                     package_image image)
+      : filename_(std::move(filename)),
+        source_(std::move(source)),
+        stamp_(stamp),
+        image_(std::move(image))
+  {
+  }
+
+  [[nodiscard]] const package_image& image() const noexcept override
+  {
+    return image_;
+  }
+
+  void replay(const entry_selection& selection,
+              payload_sink& sink) const override
+  {
+    selection.validate(image_);
+    verify_source(source_.get(), stamp_, filename_);
+
+    reader_context source {source_.get(), stamp_.size};
+    archive_handle handle = open_reader(source, filename_);
+    std::array<unsigned char, 64U * 1024U> payload {};
+
+    archive_entry* raw = nullptr;
+    int status = ARCHIVE_OK;
+    std::size_t index = 0;
+    std::size_t replayed = 0;
+
+    while ((status = archive_read_next_header(handle.get(), &raw))
+           == ARCHIVE_OK)
+    {
+      const package_entry* expected = image_.entry(index);
+      if (expected == nullptr)
+      {
+        throw source_changed_error(
+            "package archive manifest changed during replay: '"
+            + filename_.string() + "'");
+      }
+
+      package_entry actual = normalize_entry(raw);
+      actual.id = index;
+      if (actual != *expected)
+      {
+        throw source_changed_error(
+            "package archive manifest changed during replay at '"
+            + expected->path.string() + "'");
+      }
+
+      if (selection.contains(expected->id))
+      {
+        sink.begin(*expected);
+
+        std::uint64_t total = 0;
+        la_ssize_t count;
+        while ((count = archive_read_data(
+                    handle.get(), payload.data(), payload.size())) > 0)
+        {
+          const auto bytes = static_cast<std::uint64_t>(count);
+          if (bytes > expected->size - total)
+          {
+            throw archive_error(
+                "package payload exceeds declared size for '"
+                + expected->path.string() + "'");
+          }
+
+          sink.write(
+              *expected,
+              reinterpret_cast<const std::byte*>(payload.data()),
+              static_cast<std::size_t>(count));
+          total += bytes;
+        }
+
+        if (count < 0)
+        {
+          backend_error(
+              handle.get(), filename_, "could not read package payload");
+        }
+
+        if (total != expected->size)
+        {
+          throw archive_error(
+              "package payload size mismatch for '"
+              + expected->path.string() + "'");
+        }
+
+        sink.end(*expected);
+        ++replayed;
+      }
+      else if (archive_read_data_skip(handle.get()) != ARCHIVE_OK)
+      {
+        backend_error(
+            handle.get(), filename_, "could not skip package payload");
+      }
+
+      ++index;
+    }
+
+    if (status != ARCHIVE_EOF)
+      backend_error(handle.get(), filename_, "could not read package archive");
+
+    if (index != image_.size() || replayed != selection.size())
+    {
+      throw source_changed_error(
+          "package archive manifest changed during replay: '"
+          + filename_.string() + "'");
+    }
+
+    if (archive_read_close(handle.get()) != ARCHIVE_OK)
+      backend_error(handle.get(), filename_, "could not close package archive");
+
+    verify_source(source_.get(), stamp_, filename_);
+  }
+
+private:
+  std::filesystem::path filename_;
+  fd_handle source_;
+  source_stamp stamp_;
+  package_image image_;
+};
+
+} // namespace
+
+std::unique_ptr<package_archive>
+libarchive_backend::open(const std::filesystem::path& filename) const
+{
+  fd_handle source = open_source(filename);
+  const source_stamp before = read_source_stamp(source.get(), filename);
+  package_image image = inspect_source(source.get(), before, filename);
+  verify_source(source.get(), before, filename);
+
+  return std::make_unique<libarchive_package>(
+      filename, std::move(source), before, std::move(image));
 }
 
 } // namespace pkgimage

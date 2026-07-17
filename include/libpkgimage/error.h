@@ -56,11 +56,19 @@ public:
 };
 
 /*!
- * \brief Reports an archive decoding, format, or I/O failure.
+ * \brief Reports an archive decoding, format, source, or I/O failure.
  */
-class archive_error final : public error {
+class archive_error : public error {
 public:
   using error::error;
+};
+
+/*!
+ * \brief Reports that an opened archive source changed after inspection.
+ */
+class source_changed_error final : public archive_error {
+public:
+  using archive_error::archive_error;
 };
 
 } // namespace pkgimage

@@ -15,6 +15,8 @@
 #include <libpkgimage/entry_selection.h>
 #include <libpkgimage/error.h>
 #include <libpkgimage/libarchive_backend.h>
+#include <libpkgimage/package_archive.h>
 #include <libpkgimage/package_entry.h>
 #include <libpkgimage/package_image.h>
 #include <libpkgimage/package_path.h>
+#include <libpkgimage/payload_sink.h>
