@@ -27,6 +27,13 @@ if get_option('tests').allowed()
   )
   test('normalize libarchive images', libarchive_backend_test)
 
+  payload_replay_test = executable(
+    'payload-replay-test',
+    'payload_replay_test.cpp',
+    dependencies: libpkgimage_dep,
+  )
+  test('replay selected package payloads', payload_replay_test)
+
   umbrella_header_test = executable(
     'umbrella-header-test',
     'umbrella_header_test.cpp',
