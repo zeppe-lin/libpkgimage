@@ -20,7 +20,7 @@ namespace pkgimage {
  * \brief Base class for all libpkgimage failures.
  *
  * Callers may catch this type when the distinction between path,
- * manifest, and archive failures is not relevant.
+ * manifest, selection, and archive failures is not relevant.
  */
 class error : public std::runtime_error {
 public:
@@ -43,6 +43,14 @@ public:
  * \brief Reports an invalid package entry or image invariant.
  */
 class manifest_error final : public error {
+public:
+  using error::error;
+};
+
+/*!
+ * \brief Reports an invalid payload entry selection.
+ */
+class selection_error final : public error {
 public:
   using error::error;
 };

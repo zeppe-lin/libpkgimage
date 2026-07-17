@@ -13,6 +13,13 @@ if get_option('tests').allowed()
   )
   test('validate package images', package_image_test)
 
+  entry_selection_test = executable(
+    'entry-selection-test',
+    'entry_selection_test.cpp',
+    dependencies: libpkgimage_dep,
+  )
+  test('validate payload selections', entry_selection_test)
+
   libarchive_backend_test = executable(
     'libarchive-backend-test',
     'libarchive_backend_test.cpp',

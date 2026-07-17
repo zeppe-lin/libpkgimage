@@ -11,13 +11,28 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 
 #include <libpkgimage/package_path.h>
 
 namespace pkgimage {
+
+/*!
+ * \brief Stable identifier of an entry inside one package image.
+ *
+ * Identifiers are assigned consecutively in archive order by package_image.
+ */
+using entry_id = std::size_t;
+
+/*!
+ * \brief Sentinel used before an entry is admitted into a package image.
+ */
+inline constexpr entry_id invalid_entry_id =
+    std::numeric_limits<entry_id>::max();
 
 /*!
  * \brief Semantic type of a package archive entry.
@@ -41,6 +56,18 @@ struct device_number final {
 };
 
 /*!
+ * \brief Compare device identifiers for equality.
+ */
+[[nodiscard]] bool operator==(const device_number& lhs,
+                              const device_number& rhs) noexcept;
+
+/*!
+ * \brief Compare device identifiers for inequality.
+ */
+[[nodiscard]] bool operator!=(const device_number& lhs,
+                              const device_number& rhs) noexcept;
+
+/*!
  * \brief Metadata normalized from one package archive entry.
  *
  * package_entry contains no backend-specific handle.  It is the stable
@@ -54,17 +81,30 @@ struct package_entry final {
    */
   package_entry(pkgimage::package_path package_path, entry_type type);
 
-  pkgimage::package_path path;              //!< Canonical root-relative path.
-  entry_type type;                          //!< Semantic object type.
-  std::uint32_t mode = 0;                   //!< POSIX permission and special bits.
-  std::uint64_t uid = 0;                    //!< Numeric owner identifier.
-  std::uint64_t gid = 0;                    //!< Numeric group identifier.
-  std::uint64_t size = 0;                   //!< Regular-file payload size.
-  std::int64_t mtime = 0;                   //!< Modification time in Unix seconds.
-  std::uint32_t mtime_nanoseconds = 0;      //!< Subsecond modification time.
-  std::optional<std::string> symlink_target; //!< Raw symbolic-link target.
+  entry_id id = invalid_entry_id;            //!< Stable image identifier.
+  pkgimage::package_path path;                //!< Canonical root-relative path.
+  entry_type type;                            //!< Semantic object type.
+  std::uint32_t mode = 0;                     //!< POSIX permission and special bits.
+  std::uint64_t uid = 0;                      //!< Numeric owner identifier.
+  std::uint64_t gid = 0;                      //!< Numeric group identifier.
+  std::uint64_t size = 0;                     //!< Regular-file payload size.
+  std::int64_t mtime = 0;                     //!< Modification time in Unix seconds.
+  std::uint32_t mtime_nanoseconds = 0;        //!< Subsecond modification time.
+  std::optional<std::string> symlink_target;  //!< Raw symbolic-link target.
   std::optional<pkgimage::package_path> hardlink_target; //!< Canonical target.
-  std::optional<device_number> device;      //!< Device-node identifier.
+  std::optional<device_number> device;        //!< Device-node identifier.
 };
+
+/*!
+ * \brief Compare normalized package entries for semantic equality.
+ */
+[[nodiscard]] bool operator==(const package_entry& lhs,
+                              const package_entry& rhs) noexcept;
+
+/*!
+ * \brief Compare normalized package entries for semantic inequality.
+ */
+[[nodiscard]] bool operator!=(const package_entry& lhs,
+                              const package_entry& rhs) noexcept;
 
 } // namespace pkgimage

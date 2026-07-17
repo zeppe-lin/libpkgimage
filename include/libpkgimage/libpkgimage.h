@@ -12,6 +12,7 @@
 #pragma once
 
 #include <libpkgimage/archive_backend.h>
+#include <libpkgimage/entry_selection.h>
 #include <libpkgimage/error.h>
 #include <libpkgimage/libarchive_backend.h>
 #include <libpkgimage/package_entry.h>

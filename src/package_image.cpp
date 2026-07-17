@@ -103,7 +103,8 @@ package_image::package_image(std::vector<package_entry> entries)
 
   for (std::size_t i = 0; i < entries_.size(); ++i)
   {
-    const package_entry& entry = entries_[i];
+    package_entry& entry = entries_[i];
+    entry.id = i;
     validate_entry(entry);
 
     const auto inserted = by_path.emplace(entry.path.string(), i);
@@ -146,6 +147,12 @@ std::size_t
 package_image::size() const noexcept
 {
   return entries_.size();
+}
+
+const package_entry*
+package_image::entry(entry_id id) const noexcept
+{
+  return id < entries_.size() ? &entries_[id] : nullptr;
 }
 
 const package_entry*

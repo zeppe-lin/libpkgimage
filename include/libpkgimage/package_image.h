@@ -22,16 +22,17 @@ namespace pkgimage {
  * \brief Ordered, validated image of a package archive.
  *
  * Archive order is preserved because hardlink and payload semantics may
- * depend on it.  package_image rejects duplicate canonical paths and
- * validates type-specific metadata.  Explicit empty directories remain
- * first-class entries; directories needed only as structural parents are
- * never synthesized into the image.
+ * depend on it.  package_image assigns stable entry identifiers, rejects
+ * duplicate canonical paths, and validates type-specific metadata.  Explicit
+ * empty directories remain first-class entries; directories needed only as
+ * structural parents are never synthesized into the image.
  */
 class package_image final {
 public:
   /*!
    * \brief Construct and validate an ordered package image.
-   * \param entries Entries in archive order.
+   * \param entries Entries in archive order.  Existing identifiers are
+   *        replaced with consecutive identifiers beginning at zero.
    * \throws manifest_error on duplicate paths or invalid entry metadata.
    */
   explicit package_image(std::vector<package_entry> entries);
@@ -45,6 +46,13 @@ public:
    * \brief Return the number of explicit archive entries.
    */
   [[nodiscard]] std::size_t size() const noexcept;
+
+  /*!
+   * \brief Find an entry by stable image identifier.
+   * \param id Entry identifier to search for.
+   * \return Pointer to the entry, or nullptr when absent.
+   */
+  [[nodiscard]] const package_entry* entry(entry_id id) const noexcept;
 
   /*!
    * \brief Find an entry by canonical package path.
