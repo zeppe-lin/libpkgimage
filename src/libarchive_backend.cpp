@@ -92,7 +92,6 @@ struct source_stamp final {
   std::uint64_t inode;
   std::uint64_t size;
   source_time mtime;
-  source_time ctime;
 };
 
 [[nodiscard]] bool
@@ -107,8 +106,7 @@ operator==(const source_stamp& lhs, const source_stamp& rhs) noexcept
   return lhs.device == rhs.device
       && lhs.inode == rhs.inode
       && lhs.size == rhs.size
-      && lhs.mtime == rhs.mtime
-      && lhs.ctime == rhs.ctime;
+      && lhs.mtime == rhs.mtime;
 }
 
 [[nodiscard]] source_stamp
@@ -150,10 +148,6 @@ read_source_stamp(int fd, const std::filesystem::path& filename)
     source_time {
       static_cast<std::int64_t>(status.st_mtim.tv_sec),
       static_cast<std::int64_t>(status.st_mtim.tv_nsec),
-    },
-    source_time {
-      static_cast<std::int64_t>(status.st_ctim.tv_sec),
-      static_cast<std::int64_t>(status.st_ctim.tv_nsec),
     },
   };
 }

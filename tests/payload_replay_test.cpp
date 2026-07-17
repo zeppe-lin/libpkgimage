@@ -304,6 +304,11 @@ main()
   write_archive(new_path, {
     {"payload", AE_IFREG, 0644, "new", {}},
   });
+  /*
+   * Replacing the pathname unlinks the original inode and changes its ctime.
+   * The retained descriptor still names the original archive bytes, so this
+   * metadata-only change must not invalidate payload replay.
+   */
   std::filesystem::rename(new_path, replacement_path);
 
   collecting_sink stable_sink;

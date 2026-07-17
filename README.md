@@ -51,8 +51,10 @@ intermediate `write()` call.
 
 The libarchive backend retains an open descriptor for the inspected regular
 file.  Atomic replacement of the original pathname therefore does not change
-the source used for replay.  In-place changes to the retained source are
-checked before and after replay and reported as `source_changed_error`.
+the source used for replay.  Byte-relevant in-place changes to the retained
+source are checked before and after replay and reported as
+`source_changed_error`.  Pathname unlinking and other metadata-only changes do
+not invalidate an otherwise unchanged retained source.
 
 Payload replay is a transport operation, not a transaction.  A sink may have
 consumed data before a change detected at the end of replay is reported.
