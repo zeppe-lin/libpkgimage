@@ -1,64 +1,100 @@
 libpkgimage
 ===========
 
-`libpkgimage` is a C++17 library for reading package archives into a
-backend-neutral, normalized package image and replaying selected regular-file
-payloads without extracting them into a live filesystem.
+`libpkgimage` is the Zeppe-Lin C++17 library for inspecting package archives
+as normalized package images and replaying selected regular-file payloads.
 
-It currently provides:
+It provides:
 
 * canonical root-relative package paths;
-* typed package entries for regular files, explicit directories, symbolic
-  links, hard links, FIFOs, and device nodes;
-* ordered package images with stable entry identifiers, duplicate-path
-  rejection, and type-specific invariant validation;
-* immutable payload selections bound to an inspected image;
-* a backend-neutral payload sink interface;
-* stable package archive objects that retain their source independently of
-  later pathname replacement; and
+* typed archive entries;
+* ordered and validated package images;
+* stable entry identifiers;
+* immutable regular-file selections;
+* backend-neutral payload sinks;
+* stable inspected archive objects; and
 * a tar backend implemented with `libarchive`.
 
-`libpkgimage` describes archive contents and transports selected payload
-bytes.  It does not choose installation destinations, install files, apply
-package policy, identify packages from archive filenames, mutate a package
-database, stage rejected files, or perform package transactions.
-
-The implementation is original Zeppe-Lin code.  It is not derived from CRUX
-`pkgutils` or from the former CRUX-derived implementation in `libpkgcore`.
-
-Model
------
-
-The public flow is deliberately narrow:
+The central distinction is:
 
 ```text
-archive backend
-      |
-      v
-package_archive
-      |-- immutable package_image
-      `-- replay(entry_selection, payload_sink)
+package archive bytes
+        |
+        v
+pkgimage::package_image       archive truth
 ```
 
-A `package_image` records archive truth.  It preserves archive order and
-represents explicit empty directories as real entries.  It does not synthesize
-parent directories merely because child paths require them.
+A package image states what an archive contains. It does not state what is
+installed, what should be installed, or whether a build footprint matches.
 
-An `entry_selection` may contain regular entries only.  Input selection order
-has no effect on replay order: selected payloads are always emitted in archive
-order.  Empty regular files produce `begin()` and `end()` events with no
-intermediate `write()` call.
+`libpkgimage` does not:
+
+* identify packages from archive filenames;
+* parse or write `.footprint` files;
+* decide footprint mismatches;
+* evaluate installation policy;
+* choose installation destinations;
+* mutate a live filesystem;
+* stage rejected objects;
+* update installed package state; or
+* coordinate complete package transactions.
+
+The implementation is original Zeppe-Lin code. It is not derived from CRUX
+`pkgutils` or from the former CRUX-derived `libpkgcore`.
+
+Contracts
+---------
+
+The public flow is:
+
+```text
+archive_backend::open()
+          |
+          v
+    package_archive
+      |          |
+      |          `-- replay(entry_selection, payload_sink)
+      |
+      `------------- immutable package_image
+```
+
+Important invariants:
+
+* package paths are canonical and relative to the package root;
+* archive order is preserved;
+* explicit directories remain explicit entries;
+* structural parent directories are not synthesized;
+* canonical paths are unique inside one image;
+* entry identifiers are consecutive in archive order;
+* hard links target regular entries in the same image;
+* selections contain regular entries only;
+* replay order follows archive order, not selection input order; and
+* payload replay is transport, not a transaction.
 
 The libarchive backend retains an open descriptor for the inspected regular
-file.  Atomic replacement of the original pathname therefore does not change
-the source used for replay.  Byte-relevant in-place changes to the retained
-source are checked before and after replay and reported as
-`source_changed_error`.  Pathname unlinking and other metadata-only changes do
-not invalidate an otherwise unchanged retained source.
+file. Pathname replacement or unlinking does not redirect later replay to a
+different inode. Byte-relevant changes to the retained source are detected
+before, during, or after replay and reported as `source_changed_error`.
 
-Payload replay is a transport operation, not a transaction.  A sink may have
-consumed data before a change detected at the end of replay is reported.
-Installation code must stage data and provide its own transaction semantics.
+See:
+
+* `DESIGN.md` for the package path, entry, image, and error contracts;
+* `REPLAY.md` for selection, sink, and source-stability semantics;
+* `BACKENDS.md` for archive backend and libarchive behavior;
+* `INTEGRATION.md` for boundaries with footprints, build, and installed state;
+* `TESTING.md` for the verification doctrine; and
+* `HISTORY.md` for project lineage.
+
+Manual pages
+------------
+
+The installed manual suite is:
+
+* `libpkgimage(3)` — library overview and boundaries;
+* `pkgimage_model(3)` — paths, entries, images, and identifiers;
+* `pkgimage_archive(3)` — archive backends and inspected archives;
+* `pkgimage_replay(3)` — selections, payload sinks, and partial consumption;
+* `pkgimage_libarchive_backend(3)` — tar backend and source-stability rules.
 
 Requirements
 ------------
@@ -71,7 +107,10 @@ Build-time requirements:
 * pkg-config; and
 * libarchive headers and library.
 
-Doxygen is optional and is only needed to build the generated API reference.
+Optional documentation dependencies:
+
+* `scdoc` for manual pages; and
+* Doxygen for the generated API reference.
 
 Building
 --------
@@ -81,7 +120,7 @@ Shared library:
 ```sh
 meson setup build
 meson compile -C build
-meson test -C build
+meson test -C build --print-errorlogs
 ```
 
 Static library with static dependencies:
@@ -91,8 +130,22 @@ meson setup build-static \
   -Ddefault_library=static \
   -Dlink_mode=static
 meson compile -C build-static
-meson test -C build-static
+meson test -C build-static --print-errorlogs
 ```
+
+The project rejects `default_library=both`. Shared and static artifacts are
+separate builds, and each build links the corresponding form of its
+dependencies.
+
+Useful options:
+
+```sh
+meson setup build -Dtests=disabled
+meson setup build -Dman_pages=disabled
+```
+
+Manual pages use `man_pages=auto` by default and are built when `scdoc` is
+available.
 
 Installation:
 
@@ -100,14 +153,58 @@ Installation:
 meson install -C build
 ```
 
-The project intentionally rejects `default_library=both`.  Shared and static
-artifacts are separate builds, and each build links the corresponding form of
-its dependencies.
+Using the library
+-----------------
 
-Tests may be disabled with:
+```cpp
+#include <cstddef>
+#include <iostream>
+
+#include <libpkgimage/entry_selection.h>
+#include <libpkgimage/libarchive_backend.h>
+#include <libpkgimage/payload_sink.h>
+
+class sink final : public pkgimage::payload_sink {
+public:
+  void begin(const pkgimage::package_entry& entry) override
+  {
+    // Prepare staged storage for entry.path.
+  }
+
+  void write(const pkgimage::package_entry&,
+             const std::byte* data,
+             std::size_t size) override
+  {
+    // Consume exact binary payload bytes.
+  }
+
+  void end(const pkgimage::package_entry&) override
+  {
+    // Complete this staged payload.
+  }
+};
+
+pkgimage::libarchive_backend backend;
+auto archive = backend.open("example#1.0-1.pkg.tar.xz");
+
+for (const pkgimage::package_entry& entry : archive->image().entries())
+  std::cout << entry.id << ' ' << entry.path << '\n';
+
+sink destination;
+archive->replay(
+    pkgimage::entry_selection::all_regular(archive->image()),
+    destination);
+```
+
+A sink may have consumed bytes before replay fails. Consumers that require
+all-or-nothing installation must stage payloads and provide their own
+transaction boundary.
+
+Compiler and linker flags:
 
 ```sh
-meson setup build -Dtests=disabled
+pkg-config --cflags --libs libpkgimage
+pkg-config --static --libs libpkgimage
 ```
 
 API documentation
@@ -116,71 +213,23 @@ API documentation
 Public interfaces are documented with Doxygen comments under
 `include/libpkgimage`.
 
-Generate the HTML reference from the project root with:
-
 ```sh
 doxygen Doxyfile
 ```
 
-The output is written to `build/docs/html`.
-
-Using the library
------------------
-
-```cpp
-#include <libpkgimage/libarchive_backend.h>
-#include <libpkgimage/entry_selection.h>
-#include <libpkgimage/payload_sink.h>
-
-class sink final : public pkgimage::payload_sink {
-public:
-  void begin(const pkgimage::package_entry& entry) override
-  {
-    // Prepare storage for entry.path.
-  }
-
-  void write(const pkgimage::package_entry& entry,
-             const std::byte* data,
-             std::size_t size) override
-  {
-    // Consume binary payload bytes.
-  }
-
-  void end(const pkgimage::package_entry& entry) override
-  {
-    // Finish storage for entry.path.
-  }
-};
-
-pkgimage::libarchive_backend backend;
-auto package = backend.open("example#1.0-1.pkg.tar.xz");
-
-for (const pkgimage::package_entry& entry : package->image().entries())
-  std::cout << entry.id << ' ' << entry.path << '\n';
-
-sink destination;
-package->replay(
-    pkgimage::entry_selection::all_regular(package->image()),
-    destination);
-```
-
-Compiler and linker flags are available through pkg-config:
-
-```sh
-pkg-config --cflags --libs libpkgimage
-pkg-config --static --libs libpkgimage
-```
+Generated HTML is written to `build/docs/html`.
 
 Layout
 ------
 
-* `include/libpkgimage/` — public API;
-* `src/` — library implementation;
-* `tests/` — unit and backend tests; and
-* `.github/workflows/` — shared/static CI builds.
+* `include/libpkgimage/` — installed public API;
+* `src/` — library and libarchive backend;
+* `tests/` — model, backend, replay, header, and documentation tests;
+* `man/` — scdoc manual sources; and
+* `.github/workflows/` — build and documentation gates.
 
 License
 -------
 
 `libpkgimage` is licensed under the GNU General Public License version 3 or
-later.  See `COPYING` for the license terms and `COPYRIGHT` for notices.
+later. See `COPYING` for the license terms and `COPYRIGHT` for notices.
