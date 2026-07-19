@@ -29,13 +29,21 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++ libarchive-dev meson ninja-build pkg-config
+          sudo apt-get install -y \
+            doxygen \
+            g++ \
+            libarchive-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            scdoc
 
       - name: Configure
         run: |
           meson setup build \
             -Ddefault_library=${{ matrix.default_library }} \
             -Dlink_mode=${{ matrix.link_mode }} \
+            -Dman_pages=enabled \
             -Dwerror=true
 
       - name: Build
@@ -43,3 +51,9 @@ jobs:
 
       - name: Test
         run: meson test -C build --print-errorlogs
+
+      - name: API documentation
+        run: doxygen Doxyfile
+
+      - name: Install to staging
+        run: DESTDIR="$PWD/stage" meson install -C build

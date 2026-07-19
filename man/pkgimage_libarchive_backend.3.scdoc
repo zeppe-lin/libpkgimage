@@ -1,0 +1,105 @@
+PKGIMAGE_LIBARCHIVE_BACKEND(3)
+
+# NAME
+
+pkgimage_libarchive_backend - tar archive backend implemented with libarchive
+
+# SYNOPSIS
+
+```
+#include <libpkgimage/libarchive_backend.h>
+
+pkgimage::libarchive_backend backend;
+```
+
+# DESCRIPTION
+
+`pkgimage::libarchive_backend` implements `archive_backend` with libarchive.
+
+The source pathname must open successfully and identify a regular file.
+Directories, FIFOs, sockets, devices, and other non-regular sources are
+rejected.
+
+The backend retains an open descriptor for stable payload replay and exposes no
+libarchive type through the public API.
+
+# ARCHIVE FORMAT
+
+Only tar format is enabled.
+
+The backend enables these filters:
+
+```
+none
+gzip
+bzip2
+xz
+lzip
+zstd
+```
+
+The linked libarchive build must support the requested filter.
+
+# ENTRY TYPES
+
+The backend normalizes:
+
+```
+regular files
+explicit directories
+symbolic links
+hard links
+FIFOs
+character devices
+block devices
+```
+
+Unsupported archive entry types raise `pkgimage::manifest_error`.
+
+Hard-link archive headers use hard-link semantics even when the underlying
+archive file type is regular.
+
+# NORMALIZED METADATA
+
+The backend records:
+
+- canonical package path;
+- entry type;
+- permission and special bits;
+- numeric uid and gid;
+- regular-file size;
+- modification time and nanoseconds;
+- symbolic-link target;
+- hard-link target; and
+- device major and minor.
+
+Negative uid, gid, size, or device numbers are rejected.
+
+The completed `package_image` performs backend-independent validation after
+normalization.
+
+# SOURCE ACCESS
+
+The source is read through `pread(2)` from the retained descriptor using the
+size captured during inspection.
+
+The source stamp includes device, inode, size, and modification time.
+
+Before and after replay, the current descriptor stamp must match the inspected
+stamp. During replay, every normalized archive header must match the inspected
+entry at the same archive position.
+
+Source or manifest change raises `pkgimage::source_changed_error`.
+
+# PATHNAME CHANGES
+
+Atomic replacement of the original pathname does not redirect replay because
+the retained descriptor still identifies the inspected inode.
+
+Pathname unlinking and metadata-only pathname changes do not invalidate an
+otherwise unchanged retained source.
+
+# SEE ALSO
+
+*libpkgimage*(3), *pkgimage_archive*(3), *pkgimage_replay*(3),
+*libarchive*(3), *pread*(2)

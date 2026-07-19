@@ -1,0 +1,112 @@
+LIBPKGIMAGE(3)
+
+# NAME
+
+libpkgimage - normalized package archive images and payload access
+
+# SYNOPSIS
+
+```
+#include <libpkgimage/libpkgimage.h>
+```
+
+# DESCRIPTION
+
+*libpkgimage* inspects package archives as backend-neutral package images and
+replays selected regular-file payload bytes.
+
+A package image records archive truth:
+
+```
+archive bytes -> ordered package_image
+```
+
+It does not record installed state, identify the package from its filename, or
+decide whether a build footprint matches.
+
+# MODEL
+
+The public model contains:
+
+*package_path*
+	Canonical path relative to the package root.
+
+*package_entry*
+	Normalized metadata for one explicit archive entry.
+
+*package_image*
+	Ordered, validated archive entries with stable image-local identifiers.
+
+See *pkgimage_model*(3).
+
+# ARCHIVES
+
+An *archive_backend* opens or inspects an archive.
+
+`open()` returns a stable *package_archive* containing an immutable image and
+payload replay capability.
+
+`inspect()` returns only a copied image and releases retained payload access.
+
+See *pkgimage_archive*(3).
+
+# REPLAY
+
+An *entry_selection* chooses regular entries from one image. A *payload_sink*
+receives their exact bytes in archive order.
+
+Replay is transport, not a transaction. A sink may have consumed bytes before
+an error is reported.
+
+See *pkgimage_replay*(3).
+
+# ERRORS
+
+All public failures derive from `pkgimage::error`.
+
+`path_error`
+	Invalid package path.
+
+`manifest_error`
+	Invalid entry or package-image invariant.
+
+`selection_error`
+	Invalid or mismatched payload selection.
+
+`archive_error`
+	Archive source, format, decoding, or input/output failure.
+
+`source_changed_error`
+	The retained archive source or decoded manifest changed after inspection.
+
+Applications should select behavior from the typed exception class rather than
+parse diagnostic text.
+
+# BOUNDARIES
+
+*libpkgimage* does not:
+
+- infer package names or versions from archive filenames;
+- parse, write, compare, or update `.footprint` files;
+- decide build footprint mismatches;
+- apply installation policy;
+- choose destination paths;
+- mutate a live filesystem;
+- stage rejected objects;
+- update installed package state; or
+- coordinate complete package transactions.
+
+Build expectations belong to *libpkgbuild*. Installed ownership belongs to
+*libpkgstate*. Reconciliation belongs to *libpkgreconcile*.
+
+# LINKING
+
+```
+pkg-config --cflags --libs libpkgimage
+pkg-config --static --libs libpkgimage
+```
+
+# SEE ALSO
+
+*pkgimage_model*(3), *pkgimage_archive*(3), *pkgimage_replay*(3),
+*pkgimage_libarchive_backend*(3)

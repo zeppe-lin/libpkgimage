@@ -1,0 +1,85 @@
+PKGIMAGE_ARCHIVE(3)
+
+# NAME
+
+pkgimage_archive - archive backends and stable inspected archives
+
+# SYNOPSIS
+
+```
+#include <libpkgimage/archive_backend.h>
+#include <libpkgimage/package_archive.h>
+```
+
+# ARCHIVE BACKEND
+
+`pkgimage::archive_backend` separates archive transport from normalized package
+semantics.
+
+```
+std::unique_ptr<package_archive>
+open(const std::filesystem::path& filename) const;
+
+package_image
+inspect(const std::filesystem::path& filename) const;
+```
+
+`open()`
+	Open, inspect, and retain a stable archive source. Return an immutable
+	image plus payload replay capability.
+
+`inspect()`
+	Open the archive, copy its immutable image, and release the stable
+	source handle. The result cannot replay payloads.
+
+A backend maps its archive representation into the public `package_image`
+model and exposes no archive-library type through the public API.
+
+# PACKAGE ARCHIVE
+
+`pkgimage::package_archive` owns:
+
+- a stable source handle;
+- one immutable normalized image; and
+- backend-specific state needed for payload replay.
+
+```
+const package_image& image() const noexcept;
+void replay(const entry_selection&, payload_sink&) const;
+```
+
+Replay addresses entries through the inspected image. It does not extract
+files or interpret installation policy.
+
+# BACKEND RESPONSIBILITIES
+
+A backend is responsible for:
+
+- opening and validating the source;
+- decoding archive transport;
+- normalizing paths, types, and metadata;
+- constructing a validated image;
+- retaining source state required for replay; and
+- reporting source, format, decoding, and input/output failures.
+
+A backend is not responsible for package filename identity, footprint policy,
+installation, installed state, or transaction coordination.
+
+# CONCURRENCY
+
+The abstract interface does not promise concurrent replay calls.
+
+A concrete backend may provide concurrency, but consumers must not rely on it
+unless that backend documents the guarantee.
+
+# ERRORS
+
+Source and backend failures raise `pkgimage::archive_error`.
+
+Invalid paths and normalized image contents may raise
+`pkgimage::path_error` or `pkgimage::manifest_error`.
+
+# SEE ALSO
+
+*libpkgimage*(3), *pkgimage_model*(3), *pkgimage_replay*(3),
+*pkgimage_libarchive_backend*(3)

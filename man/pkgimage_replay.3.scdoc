@@ -1,0 +1,105 @@
+PKGIMAGE_REPLAY(3)
+
+# NAME
+
+pkgimage_replay - payload selections, sinks, and replay semantics
+
+# SYNOPSIS
+
+```
+#include <libpkgimage/entry_selection.h>
+#include <libpkgimage/payload_sink.h>
+#include <libpkgimage/package_archive.h>
+```
+
+# ENTRY SELECTION
+
+`pkgimage::entry_selection` is an immutable set of regular entries selected
+from one package image.
+
+Create selections with:
+
+```
+entry_selection::all_regular(image)
+entry_selection::from_ids(image, ids)
+```
+
+`from_ids()` rejects absent identifiers, duplicate identifiers, and
+non-regular entries.
+
+A selection records the source image width plus selected identifiers and
+paths. `validate(image)` rejects a mismatched image.
+
+Input identifier order does not control replay order. Replay always follows
+archive order.
+
+# PAYLOAD SINK
+
+A `pkgimage::payload_sink` receives one event sequence for every selected
+regular entry:
+
+```
+begin(entry)
+zero or more write(entry, bytes)
+end(entry)
+```
+
+Empty regular files produce `begin()` and `end()` without a `write()` call.
+
+Payload bytes are binary and exact. The library performs no text decoding,
+content normalization, or package transformation.
+
+Sink exceptions propagate unchanged.
+
+When `begin()` or `write()` fails, `end()` is not called for that entry.
+
+# REPLAY
+
+`package_archive::replay()` validates the selection, rereads the retained
+archive, verifies the inspected manifest, emits selected payloads, validates
+declared payload sizes, and checks source stability.
+
+A selection mismatch raises `pkgimage::selection_error`.
+
+Archive decoding or payload-size failures raise `pkgimage::archive_error`.
+
+A changed retained source or changed decoded manifest raises
+`pkgimage::source_changed_error`.
+
+# PARTIAL CONSUMPTION
+
+Replay is not rollback-capable.
+
+A sink may have completed earlier entries or consumed part of the current
+entry before a sink exception or late archive failure is reported.
+
+Consumers requiring all-or-nothing deployment must write into private staging
+and provide their own publication and rollback boundary.
+
+# SOURCE STABILITY
+
+The libarchive backend retains an open descriptor to the inspected regular
+file and records:
+
+```
+device
+inode
+size
+mtime seconds
+mtime nanoseconds
+```
+
+Atomic pathname replacement does not redirect replay to a new inode.
+
+Unlinking the original pathname does not invalidate replay while the retained
+inode remains available.
+
+Byte-relevant in-place changes are rejected. Every normalized header is also
+compared with the inspected image during replay.
+
+See *pkgimage_libarchive_backend*(3).
+
+# SEE ALSO
+
+*libpkgimage*(3), *pkgimage_model*(3), *pkgimage_archive*(3),
+*pkgimage_libarchive_backend*(3)
