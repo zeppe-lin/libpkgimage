@@ -31,7 +31,7 @@ check_page man/pkgimage_replay.3.scdoc PKGIMAGE_REPLAY\(3\)
 check_page man/pkgimage_libarchive_backend.3.scdoc \
   PKGIMAGE_LIBARCHIVE_BACKEND\(3\)
 
-grep -F 'parse, write, compare, or update `.footprint` files' \
+grep -F 'parse, write, compare, or update _.footprint_ files' \
   "$source_root/man/libpkgimage.3.scdoc" >/dev/null ||
   fail "library manual omits footprint boundary"
 
