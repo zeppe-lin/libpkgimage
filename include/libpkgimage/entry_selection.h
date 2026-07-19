@@ -1,12 +1,9 @@
-/*
- * Copyright (C) 2026 Alexandr Savca
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
+// SPDX-FileCopyrightText: 2026 Alexandr Savca
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 /*!
  * \file entry_selection.h
  * \brief Immutable selection of package payload entries.
- * \copyright See COPYING for license terms and COPYRIGHT for notices.
  */
 
 #pragma once

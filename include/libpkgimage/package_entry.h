@@ -1,12 +1,9 @@
-/*
- * Copyright (C) 2026 Alexandr Savca
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
+// SPDX-FileCopyrightText: 2026 Alexandr Savca
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 /*!
  * \file package_entry.h
  * \brief Backend-neutral package entry metadata.
- * \copyright See COPYING for license terms and COPYRIGHT for notices.
  */
 
 #pragma once
