@@ -43,10 +43,10 @@ See *pkgimage_model*(3).
 
 An *archive_backend* opens or inspects an archive.
 
-`open()` returns a stable *package_archive* containing an immutable image and
+*open()* returns a stable *package_archive* containing an immutable image and
 payload replay capability.
 
-`inspect()` returns only a copied image and releases retained payload access.
+*inspect()* returns only a copied image and releases retained payload access.
 
 See *pkgimage_archive*(3).
 
@@ -62,21 +62,21 @@ See *pkgimage_replay*(3).
 
 # ERRORS
 
-All public failures derive from `pkgimage::error`.
+All public failures derive from *pkgimage::error*.
 
-`path_error`
+*path_error*
 	Invalid package path.
 
-`manifest_error`
+*manifest_error*
 	Invalid entry or package-image invariant.
 
-`selection_error`
+*selection_error*
 	Invalid or mismatched payload selection.
 
-`archive_error`
+*archive_error*
 	Archive source, format, decoding, or input/output failure.
 
-`source_changed_error`
+*source_changed_error*
 	The retained archive source or decoded manifest changed after inspection.
 
 Applications should select behavior from the typed exception class rather than
@@ -87,7 +87,7 @@ parse diagnostic text.
 *libpkgimage* does not:
 
 - infer package names or versions from archive filenames;
-- parse, write, compare, or update `.footprint` files;
+- parse, write, compare, or update _.footprint_ files;
 - decide build footprint mismatches;
 - apply installation policy;
 - choose destination paths;

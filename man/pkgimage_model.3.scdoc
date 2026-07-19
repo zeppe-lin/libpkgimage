@@ -14,7 +14,7 @@ pkgimage_model - canonical paths, archive entries, and package images
 
 # PACKAGE PATHS
 
-`pkgimage::package_path` is a canonical path relative to a package root.
+*pkgimage::package_path* is a canonical path relative to a package root.
 
 Construct a path with:
 
@@ -28,14 +28,14 @@ Parsing:
 - rejects absolute paths;
 - rejects NUL, carriage-return, and newline bytes;
 - removes empty components;
-- removes `.` components;
-- rejects every `..` component; and
+- removes *.* components;
+- rejects every *..* component; and
 - removes trailing separators.
 
 Directory identity belongs to entry type, not path spelling.
 
 Package paths are archive data. They are not normalized with host
-`std::filesystem::path` rules.
+*std::filesystem::path* rules.
 
 Queries provide:
 
@@ -46,11 +46,11 @@ parent()
 is_ancestor_of()
 ```
 
-Invalid input raises `pkgimage::path_error`.
+Invalid input raises *pkgimage::path_error*.
 
 # ENTRY TYPES
 
-`pkgimage::entry_type` provides:
+*pkgimage::entry_type* provides:
 
 ```
 regular
@@ -62,7 +62,7 @@ character_device
 block_device
 ```
 
-`pkgimage::package_entry` contains one path, type, image-local identifier,
+*pkgimage::package_entry* contains one path, type, image-local identifier,
 mode, numeric uid and gid, regular-file size, modification time, and optional
 type-specific data.
 
@@ -73,7 +73,7 @@ Hard-link targets are canonical package paths.
 
 # PACKAGE IMAGES
 
-`pkgimage::package_image` is an immutable ordered image after construction.
+*pkgimage::package_image* is an immutable ordered image after construction.
 
 Construction:
 
@@ -112,11 +112,11 @@ not carry one.
 
 Modification-time nanoseconds must be in the range 0 through 999999999.
 
-Violation raises `pkgimage::manifest_error`.
+Violation raises *pkgimage::manifest_error*.
 
 # IDENTIFIERS
 
-`pkgimage::entry_id` is stable only inside one package image.
+*pkgimage::entry_id* is stable only inside one package image.
 
 Identifiers are consecutive in archive order. They are not package-global and
 must not be persisted as archive identity outside the corresponding image.

@@ -13,7 +13,7 @@ pkgimage_archive - archive backends and stable inspected archives
 
 # ARCHIVE BACKEND
 
-`pkgimage::archive_backend` separates archive transport from normalized package
+*pkgimage::archive_backend* separates archive transport from normalized package
 semantics.
 
 ```
@@ -24,20 +24,20 @@ package_image
 inspect(const std::filesystem::path& filename) const;
 ```
 
-`open()`
+*open()*
 	Open, inspect, and retain a stable archive source. Return an immutable
 	image plus payload replay capability.
 
-`inspect()`
+*inspect()*
 	Open the archive, copy its immutable image, and release the stable
 	source handle. The result cannot replay payloads.
 
-A backend maps its archive representation into the public `package_image`
+A backend maps its archive representation into the public *package_image*
 model and exposes no archive-library type through the public API.
 
 # PACKAGE ARCHIVE
 
-`pkgimage::package_archive` owns:
+*pkgimage::package_archive* owns:
 
 - a stable source handle;
 - one immutable normalized image; and
@@ -74,10 +74,10 @@ unless that backend documents the guarantee.
 
 # ERRORS
 
-Source and backend failures raise `pkgimage::archive_error`.
+Source and backend failures raise *pkgimage::archive_error*.
 
 Invalid paths and normalized image contents may raise
-`pkgimage::path_error` or `pkgimage::manifest_error`.
+*pkgimage::path_error* or *pkgimage::manifest_error*.
 
 # SEE ALSO
 

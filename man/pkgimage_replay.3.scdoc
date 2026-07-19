@@ -14,7 +14,7 @@ pkgimage_replay - payload selections, sinks, and replay semantics
 
 # ENTRY SELECTION
 
-`pkgimage::entry_selection` is an immutable set of regular entries selected
+*pkgimage::entry_selection* is an immutable set of regular entries selected
 from one package image.
 
 Create selections with:
@@ -24,18 +24,18 @@ entry_selection::all_regular(image)
 entry_selection::from_ids(image, ids)
 ```
 
-`from_ids()` rejects absent identifiers, duplicate identifiers, and
+*from_ids()* rejects absent identifiers, duplicate identifiers, and
 non-regular entries.
 
 A selection records the source image width plus selected identifiers and
-paths. `validate(image)` rejects a mismatched image.
+paths. *validate(image)* rejects a mismatched image.
 
 Input identifier order does not control replay order. Replay always follows
 archive order.
 
 # PAYLOAD SINK
 
-A `pkgimage::payload_sink` receives one event sequence for every selected
+A *pkgimage::payload_sink* receives one event sequence for every selected
 regular entry:
 
 ```
@@ -44,27 +44,27 @@ zero or more write(entry, bytes)
 end(entry)
 ```
 
-Empty regular files produce `begin()` and `end()` without a `write()` call.
+Empty regular files produce *begin()* and *end()* without a *write()* call.
 
 Payload bytes are binary and exact. The library performs no text decoding,
 content normalization, or package transformation.
 
 Sink exceptions propagate unchanged.
 
-When `begin()` or `write()` fails, `end()` is not called for that entry.
+When *begin()* or *write()* fails, *end()* is not called for that entry.
 
 # REPLAY
 
-`package_archive::replay()` validates the selection, rereads the retained
+*package_archive::replay()* validates the selection, rereads the retained
 archive, verifies the inspected manifest, emits selected payloads, validates
 declared payload sizes, and checks source stability.
 
-A selection mismatch raises `pkgimage::selection_error`.
+A selection mismatch raises *pkgimage::selection_error*.
 
-Archive decoding or payload-size failures raise `pkgimage::archive_error`.
+Archive decoding or payload-size failures raise *pkgimage::archive_error*.
 
 A changed retained source or changed decoded manifest raises
-`pkgimage::source_changed_error`.
+*pkgimage::source_changed_error*.
 
 # PARTIAL CONSUMPTION
 

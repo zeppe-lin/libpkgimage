@@ -14,7 +14,7 @@ pkgimage::libarchive_backend backend;
 
 # DESCRIPTION
 
-`pkgimage::libarchive_backend` implements `archive_backend` with libarchive.
+*pkgimage::libarchive_backend* implements *archive_backend* with libarchive.
 
 The source pathname must open successfully and identify a regular file.
 Directories, FIFOs, sockets, devices, and other non-regular sources are
@@ -54,7 +54,7 @@ character devices
 block devices
 ```
 
-Unsupported archive entry types raise `pkgimage::manifest_error`.
+Unsupported archive entry types raise *pkgimage::manifest_error*.
 
 Hard-link archive headers use hard-link semantics even when the underlying
 archive file type is regular.
@@ -75,12 +75,12 @@ The backend records:
 
 Negative uid, gid, size, or device numbers are rejected.
 
-The completed `package_image` performs backend-independent validation after
+The completed *package_image* performs backend-independent validation after
 normalization.
 
 # SOURCE ACCESS
 
-The source is read through `pread(2)` from the retained descriptor using the
+The source is read through *pread(2)* from the retained descriptor using the
 size captured during inspection.
 
 The source stamp includes device, inode, size, and modification time.
@@ -89,7 +89,7 @@ Before and after replay, the current descriptor stamp must match the inspected
 stamp. During replay, every normalized archive header must match the inspected
 entry at the same archive position.
 
-Source or manifest change raises `pkgimage::source_changed_error`.
+Source or manifest change raises *pkgimage::source_changed_error*.
 
 # PATHNAME CHANGES
 
