@@ -523,12 +523,12 @@ public:
   libarchive_package(std::filesystem::path filename,
                      fd_handle source,
                      source_stamp stamp,
-                     complete_archive_digest archive_digest,
+                     archive_inspection_receipt receipt,
                      package_image image)
       : filename_(std::move(filename)),
         source_(std::move(source)),
         stamp_(stamp),
-        archive_digest_(std::move(archive_digest)),
+        receipt_(std::move(receipt)),
         image_(std::move(image))
   {
   }
@@ -536,6 +536,12 @@ public:
   [[nodiscard]] const package_image& image() const noexcept override
   {
     return image_;
+  }
+
+  [[nodiscard]] const archive_inspection_receipt&
+  inspection_receipt() const noexcept override
+  {
+    return receipt_;
   }
 
   void replay(const entry_selection& selection,
@@ -642,20 +648,28 @@ private:
   std::filesystem::path filename_;
   fd_handle source_;
   source_stamp stamp_;
-  complete_archive_digest archive_digest_;
+  archive_inspection_receipt receipt_;
   package_image image_;
 };
 
 } // namespace
 
 std::unique_ptr<package_archive>
-libarchive_backend::open(const std::filesystem::path& filename) const
+libarchive_backend::open(const archive_inspection_request& request) const
 {
+  const std::filesystem::path& filename = request.source;
   fd_handle source = open_source(filename);
   const source_stamp before = read_source_stamp(source.get(), filename);
   const complete_archive_digest archive_digest =
       hash_source(source.get(), before, filename);
   verify_source(source.get(), before, filename);
+
+  if (request.expected_archive_digest
+      && *request.expected_archive_digest != archive_digest)
+  {
+    throw complete_archive_digest_mismatch_error(
+        *request.expected_archive_digest, archive_digest);
+  }
 
   package_image image = inspect_source(source.get(), before, filename);
   verify_source(source.get(), before, filename);
@@ -670,8 +684,14 @@ libarchive_backend::open(const std::filesystem::path& filename) const
         + filename.string() + "'");
   }
 
+  archive_inspection_receipt receipt(
+      archive_backend_identity::parse("libpkgimage.libarchive.tar.v1"),
+      archive_digest, image.identity(),
+      static_cast<std::uint64_t>(image.size()));
+
   return std::make_unique<libarchive_package>(
-      filename, std::move(source), before, archive_digest, std::move(image));
+      filename, std::move(source), before, std::move(receipt),
+      std::move(image));
 }
 
 } // namespace pkgimage

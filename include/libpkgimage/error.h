@@ -11,6 +11,8 @@
 #include <stdexcept>
 #include <string>
 
+#include <libpkgimage/digest.h>
+
 namespace pkgimage {
 
 /*!
@@ -48,6 +50,12 @@ public:
   using digest_error::digest_error;
 };
 
+/*! \brief Reports an invalid archive-inspection receipt invariant. */
+class invalid_receipt_error final : public error {
+public:
+  using error::error;
+};
+
 /*! \brief Reports a package path that cannot be normalized safely. */
 class path_error final : public error {
 public:
@@ -78,15 +86,28 @@ public:
   using error::error;
 };
 
-/*!
- * \brief Reports that an opened archive source changed after inspection.
- */
 /*! \brief Reports decoded payload length inconsistent with its archive header. */
 class declared_size_mismatch_error final : public archive_error {
 public:
   using archive_error::archive_error;
 };
 
+/*! \brief Reports an expected exact archive digest that did not match. */
+class complete_archive_digest_mismatch_error final : public archive_error {
+public:
+  complete_archive_digest_mismatch_error(
+      complete_archive_digest expected,
+      complete_archive_digest actual);
+
+  [[nodiscard]] const complete_archive_digest& expected() const noexcept;
+  [[nodiscard]] const complete_archive_digest& actual() const noexcept;
+
+private:
+  complete_archive_digest expected_;
+  complete_archive_digest actual_;
+};
+
+/*! \brief Reports that an opened archive source changed after inspection. */
 class source_changed_error final : public archive_error {
 public:
   using archive_error::archive_error;

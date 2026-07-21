@@ -12,21 +12,11 @@
 
 namespace pkgimage {
 
-/*!
- * \brief archive_backend implemented with libarchive.
- *
- * This backend accepts regular tar archive files with the compression filters
- * enabled by the linked libarchive build.  It retains an open source
- * descriptor, detects in-place source changes, contains no installation
- * policy, and exposes no libarchive type through the public API.
- */
+/*! \brief Tar archive backend implemented with libarchive. */
 class libarchive_backend final : public archive_backend {
 public:
-  /*!
-   * \copydoc archive_backend::open
-   */
   [[nodiscard]] std::unique_ptr<package_archive>
-  open(const std::filesystem::path& filename) const override;
+  open(const archive_inspection_request& request) const override;
 };
 
 } // namespace pkgimage

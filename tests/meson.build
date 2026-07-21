@@ -4,6 +4,13 @@
 if get_option('tests').allowed()
   sh = find_program('sh')
 
+  inspection_receipt_test = executable(
+    'inspection-receipt-test',
+    'inspection_receipt_test.cpp',
+    dependencies: libpkgimage_dep,
+  )
+  test('validate inspection receipts', inspection_receipt_test)
+
   digest_test = executable(
     'digest-test',
     'digest_test.cpp',
@@ -64,6 +71,7 @@ if get_option('tests').allowed()
     ['libpkgimage', 'libpkgimage/libpkgimage.h'],
     ['error', 'libpkgimage/error.h'],
     ['digest', 'libpkgimage/digest.h'],
+    ['inspection-receipt', 'libpkgimage/inspection_receipt.h'],
     ['package-path', 'libpkgimage/package_path.h'],
     ['package-entry', 'libpkgimage/package_entry.h'],
     ['package-image', 'libpkgimage/package_image.h'],

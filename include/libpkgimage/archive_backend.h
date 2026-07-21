@@ -10,44 +10,51 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 
+#include <libpkgimage/inspection_receipt.h>
 #include <libpkgimage/package_archive.h>
 
 namespace pkgimage {
 
-/*!
- * \brief Backend-neutral package archive reader.
- *
- * Implementations decode an archive transport and emit the same normalized
- * package_image model.  Archive libraries are therefore replaceable without
- * changing package-image or payload-replay semantics.
- */
+/*! \brief Explicit inputs to one exact-byte archive inspection. */
+struct archive_inspection_request final {
+  std::filesystem::path source; //!< Path opened once as the retained source.
+  //! Optional assertion over the exact retained source bytes.
+  std::optional<complete_archive_digest> expected_archive_digest;
+};
+
+/*! \brief Backend-neutral package archive reader. */
 class archive_backend {
 public:
-  /*!
-   * \brief Destroy the archive backend.
-   */
   virtual ~archive_backend() = default;
 
   /*!
-   * \brief Open, inspect, and retain a package archive source.
-   * \param filename Regular package archive file to open.
-   * \return Stable package archive with normalized image and payload access.
-   * \throws archive_error for source, backend, format, or I/O failures.
-   * \throws path_error or manifest_error for invalid package contents.
+   * \brief Inspect and retain a package archive for later replay.
+   * \param request Exact source and optional exact-byte assertion.
    */
   [[nodiscard]] virtual std::unique_ptr<package_archive>
-  open(const std::filesystem::path& filename) const = 0;
+  open(const archive_inspection_request& request) const = 0;
 
   /*!
-   * \brief Inspect a package archive without retaining payload access.
-   * \param filename Package archive to inspect.
-   * \return Ordered, validated package image.
-   *
-   * This convenience operation opens the archive and copies its immutable
-   * image before releasing the stable source handle.
+   * \brief Inspect and retain a package archive by pathname.
+   * \param filename Regular archive source to open.
    */
-  [[nodiscard]] package_image
+  [[nodiscard]] std::unique_ptr<package_archive>
+  open(const std::filesystem::path& filename) const;
+
+  /*!
+   * \brief Inspect an archive and return image plus receipt.
+   * \param request Exact source and optional exact-byte assertion.
+   */
+  [[nodiscard]] inspected_package_image
+  inspect(const archive_inspection_request& request) const;
+
+  /*!
+   * \brief Inspect an archive by pathname and return image plus receipt.
+   * \param filename Regular archive source to inspect.
+   */
+  [[nodiscard]] inspected_package_image
   inspect(const std::filesystem::path& filename) const;
 };
 

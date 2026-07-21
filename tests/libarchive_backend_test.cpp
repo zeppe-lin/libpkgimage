@@ -19,6 +19,8 @@
 #include <unistd.h>
 
 using pkgimage::entry_type;
+using pkgimage::complete_archive_digest_mismatch_error;
+using pkgimage::inspected_package_image;
 using pkgimage::libarchive_backend;
 using pkgimage::manifest_error;
 using pkgimage::package_image;
@@ -160,7 +162,12 @@ main()
     {"dev/example", AE_IFCHR, 0600, {}, {}, 1, 7},
   });
 
-  const package_image image = backend.inspect(valid_archive);
+  const inspected_package_image inspected = backend.inspect(valid_archive);
+  const package_image& image = inspected.image();
+  CHECK(inspected.receipt().image_identity() == image.identity());
+  CHECK(inspected.receipt().entry_count() == image.size());
+  CHECK(inspected.receipt().backend_identity().string()
+        == "libpkgimage.libarchive.tar.v1");
   CHECK(image.size() == 6);
   CHECK(image.entries()[0].path.string() == "var/lib/example-empty");
   CHECK(image.entries()[0].type == entry_type::directory);
@@ -207,6 +214,14 @@ main()
   });
   check_throws<manifest_error>(
       [&] { (void)backend.inspect(missing_hardlink_archive); });
+
+  check_throws<complete_archive_digest_mismatch_error>([&] {
+    pkgimage::archive_inspection_request request {valid_archive,
+      pkgimage::complete_archive_digest::parse(
+          "sha256:00000000000000000000000000000000"
+          "00000000000000000000000000000000")};
+    (void)backend.inspect(request);
+  });
 
   return EXIT_SUCCESS;
 }

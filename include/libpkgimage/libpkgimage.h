@@ -12,6 +12,7 @@
 #include <libpkgimage/digest.h>
 #include <libpkgimage/entry_selection.h>
 #include <libpkgimage/error.h>
+#include <libpkgimage/inspection_receipt.h>
 #include <libpkgimage/libarchive_backend.h>
 #include <libpkgimage/package_archive.h>
 #include <libpkgimage/package_entry.h>

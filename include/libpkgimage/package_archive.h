@@ -9,6 +9,7 @@
 #pragma once
 
 #include <libpkgimage/entry_selection.h>
+#include <libpkgimage/inspection_receipt.h>
 #include <libpkgimage/payload_sink.h>
 
 namespace pkgimage {
@@ -31,6 +32,10 @@ public:
    * \brief Return the immutable normalized package image.
    */
   [[nodiscard]] virtual const package_image& image() const noexcept = 0;
+
+  /*! \brief Return evidence binding the image to exact inspected bytes. */
+  [[nodiscard]] virtual const archive_inspection_receipt&
+  inspection_receipt() const noexcept = 0;
 
   /*!
    * \brief Replay selected regular-file payloads in archive order.
