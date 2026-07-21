@@ -6,6 +6,7 @@ if scdoc.found()
   foreach page : [
     'libpkgimage.3',
     'pkgimage_model.3',
+    'pkgimage_identity.3',
     'pkgimage_archive.3',
     'pkgimage_replay.3',
     'pkgimage_libarchive_backend.3',

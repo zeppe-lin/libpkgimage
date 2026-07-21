@@ -13,6 +13,9 @@ ordered entries
 canonical paths
 entry types
 archive metadata
+regular-content identities
+package-image identity
+complete-archive digest and inspection receipt
 selected regular payload bytes
 ```
 
@@ -111,3 +114,22 @@ Filesystem integrity auditing belongs to `libpkgaudit`.
 
 Archive metadata may inform future audit expectations, but `libpkgimage` does
 not probe a filesystem or classify integrity findings.
+
+Identity boundaries
+-------------------
+
+```text
+artifact identity                 producer/provider control
+complete_archive_digest           exact archive bytes
+regular_content_digest            decoded bytes of one regular entry
+package_image_identity             ordered normalized archive semantics
+archive_inspection_receipt         exact bytes -> normalized image evidence
+future payload-equivalence digest  unresolved broader equivalence relation
+```
+
+`libpkgimage` owns the complete-archive, regular-content, package-image, and
+inspection-receipt facts. The future payload-equivalence digest is deliberately
+out of scope. It does not
+create artifact identity or interpret an artifact manifest. An upstream caller
+may compare a manifest's complete-archive digest with the digest observed in the
+inspection receipt to bind artifact control to archive truth.

@@ -2,7 +2,7 @@ PKGIMAGE_REPLAY(3)
 
 # NAME
 
-pkgimage_replay - payload selections, sinks, and replay semantics
+pkgimage_replay - sealed selections, payload verification, and partial delivery
 
 # SYNOPSIS
 
@@ -14,29 +14,14 @@ pkgimage_replay - payload selections, sinks, and replay semantics
 
 # ENTRY SELECTION
 
-*pkgimage::entry_selection* is an immutable set of regular entries selected
-from one package image.
+An *entry_selection* records package-image identity plus selected regular entry
+identifiers, paths, and content identities. *validate()* accepts equivalent
+copies of the same immutable image and rejects every different image.
 
-Create selections with:
-
-```
-entry_selection::all_regular(image)
-entry_selection::from_ids(image, ids)
-```
-
-*from_ids()* rejects absent identifiers, duplicate identifiers, and
-non-regular entries.
-
-A selection records the source image width plus selected identifiers and
-paths. *validate(image)* rejects a mismatched image.
-
-Input identifier order does not control replay order. Replay always follows
-archive order.
+Input identifier order does not control replay order. Replay follows archive
+order.
 
 # PAYLOAD SINK
-
-A *pkgimage::payload_sink* receives one event sequence for every selected
-regular entry:
 
 ```
 begin(entry)
@@ -44,62 +29,32 @@ zero or more write(entry, bytes)
 end(entry)
 ```
 
-Empty regular files produce *begin()* and *end()* without a *write()* call.
-
-Payload bytes are binary and exact. The library performs no text decoding,
-content normalization, or package transformation.
-
-Sink exceptions propagate unchanged.
-
-When *begin()* or *write()* fails, *end()* is not called for that entry.
+Empty regular files produce *begin()* and *end()* without *write()*.
 
 # REPLAY
 
-*package_archive::replay()* validates the selection, rereads the retained
-archive, verifies the inspected manifest, emits selected payloads, validates
-declared payload sizes, and checks source stability.
+Replay validates the selection, rechecks the complete retained archive digest,
+compares normalized headers, validates declared sizes, streams selected bytes,
+and verifies each content digest before *end(entry)*.
 
-A selection mismatch raises *pkgimage::selection_error*.
-
-Archive decoding or payload-size failures raise *pkgimage::archive_error*.
-
-A changed retained source or changed decoded manifest raises
-*pkgimage::source_changed_error*.
+A content mismatch raises *regular_payload_digest_mismatch_error*. A changed
+retained source raises *source_changed_error*.
 
 # PARTIAL CONSUMPTION
 
 Replay is not rollback-capable.
 
-A sink may have completed earlier entries or consumed part of the current
-entry before a sink exception or late archive failure is reported.
-
-Consumers requiring all-or-nothing deployment must write into private staging
-and provide their own publication and rollback boundary.
+A sink may have consumed complete earlier entries or part of the current entry
+before a late failure. Consumers requiring all-or-nothing effects must stage and
+publish through another layer.
 
 # SOURCE STABILITY
 
-The libarchive backend retains an open descriptor to the inspected regular
-file and records:
-
-```
-device
-inode
-size
-mtime seconds
-mtime nanoseconds
-```
-
-Atomic pathname replacement does not redirect replay to a new inode.
-
-Unlinking the original pathname does not invalidate replay while the retained
-inode remains available.
-
-Byte-relevant in-place changes are rejected. Every normalized header is also
-compared with the inspected image during replay.
-
-See *pkgimage_libarchive_backend*(3).
+Atomic pathname replacement does not redirect replay because the retained file
+descriptor continues to identify the inspected inode. The backend checks both
+source stamp and complete archive digest before and after replay.
 
 # SEE ALSO
 
-*libpkgimage*(3), *pkgimage_model*(3), *pkgimage_archive*(3),
+*libpkgimage*(3), *pkgimage_identity*(3), *pkgimage_archive*(3),
 *pkgimage_libarchive_backend*(3)

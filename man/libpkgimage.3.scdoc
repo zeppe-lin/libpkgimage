@@ -2,7 +2,7 @@ LIBPKGIMAGE(3)
 
 # NAME
 
-libpkgimage - normalized package archive images and payload access
+libpkgimage - sealed package archive truth and payload access
 
 # SYNOPSIS
 
@@ -12,75 +12,50 @@ libpkgimage - normalized package archive images and payload access
 
 # DESCRIPTION
 
-*libpkgimage* inspects package archives as backend-neutral package images and
-replays selected regular-file payload bytes.
-
-A package image records archive truth:
-
-```
-archive bytes -> ordered package_image
-```
-
-It does not record installed state, identify the package from its filename, or
-decide whether a build footprint matches.
+*libpkgimage* inspects exact package archive bytes into an immutable ordered
+*package_image*, identifies that image, and publishes an
+*archive_inspection_receipt* binding the image to the complete input digest.
+It replays selected regular payload bytes without applying a package.
 
 # MODEL
-
-The public model contains:
 
 *package_path*
 	Canonical path relative to the package root.
 
 *package_entry*
-	Normalized metadata for one explicit archive entry.
+	Normalized explicit archive entry. Every regular entry carries a decoded
+	content digest.
 
 *package_image*
-	Ordered, validated archive entries with stable image-local identifiers.
+	Ordered validated archive semantics with a canonical image identity.
 
-See *pkgimage_model*(3).
+*archive_inspection_receipt*
+	Evidence binding exact archive bytes and backend schema to the image.
+
+See *pkgimage_model*(3) and *pkgimage_identity*(3).
 
 # ARCHIVES
 
-An *archive_backend* opens or inspects an archive.
+*open()* returns a stable *package_archive* containing the immutable image,
+inspection receipt, retained source, and payload replay capability.
 
-*open()* returns a stable *package_archive* containing an immutable image and
-payload replay capability.
-
-*inspect()* returns only a copied image and releases retained payload access.
-
-See *pkgimage_archive*(3).
+*inspect()* returns an *inspected_package_image* containing both image and
+receipt. It never returns a bare image that discards the archive binding.
 
 # REPLAY
 
-An *entry_selection* chooses regular entries from one image. A *payload_sink*
-receives their exact bytes in archive order.
+An *entry_selection* is bound to package-image identity. A *payload_sink*
+receives selected regular bytes in archive order. Replayed bytes are checked
+against inspection-time content identity before *end()*.
 
 Replay is transport, not a transaction. A sink may have consumed bytes before
 an error is reported.
 
-See *pkgimage_replay*(3).
-
 # ERRORS
 
-All public failures derive from *pkgimage::error*.
-
-*path_error*
-	Invalid package path.
-
-*manifest_error*
-	Invalid entry or package-image invariant.
-
-*selection_error*
-	Invalid or mismatched payload selection.
-
-*archive_error*
-	Archive source, format, decoding, or input/output failure.
-
-*source_changed_error*
-	The retained archive source or decoded manifest changed after inspection.
-
-Applications should select behavior from the typed exception class rather than
-parse diagnostic text.
+All public failures derive from *pkgimage::error*. Digest, receipt, exact-byte
+assertion, declared-size, content-integrity, source-change, path, manifest,
+selection, and archive failures are typed; callers do not parse diagnostics.
 
 # BOUNDARIES
 
@@ -88,16 +63,13 @@ parse diagnostic text.
 
 - infer package names or versions from archive filenames;
 - parse, write, compare, or update _.footprint_ files;
-- decide build footprint mismatches;
+- assign package release or artifact identity;
+- parse artifact manifests or verify provider trust;
 - apply installation policy;
-- choose destination paths;
 - mutate a live filesystem;
 - stage rejected objects;
 - update installed package state; or
 - coordinate complete package transactions.
-
-Build expectations belong to *libpkgbuild*. Installed ownership belongs to
-*libpkgstate*. Reconciliation belongs to *libpkgreconcile*.
 
 # LINKING
 
@@ -108,5 +80,5 @@ pkg-config --static --libs libpkgimage
 
 # SEE ALSO
 
-*pkgimage_model*(3), *pkgimage_archive*(3), *pkgimage_replay*(3),
-*pkgimage_libarchive_backend*(3)
+*pkgimage_model*(3), *pkgimage_identity*(3), *pkgimage_archive*(3),
+*pkgimage_replay*(3), *pkgimage_libarchive_backend*(3)

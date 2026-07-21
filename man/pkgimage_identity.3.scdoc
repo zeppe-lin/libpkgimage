@@ -1,0 +1,70 @@
+PKGIMAGE_IDENTITY(3)
+
+# NAME
+
+pkgimage_identity - archive, content, image, and inspection receipt identities
+
+# SYNOPSIS
+
+```
+#include <libpkgimage/digest.h>
+#include <libpkgimage/inspection_receipt.h>
+```
+
+# IDENTITY DOMAINS
+
+*complete_archive_digest*
+	SHA-256 of every exact archive source byte, including transport encoding,
+	compression, headers, ordering, and trailing bytes.
+
+*regular_content_digest*
+	SHA-256 of the decoded bytes of one regular entry. Empty files identify the
+	empty byte sequence. Hard links carry no independent content digest.
+
+*package_image_identity*
+	SHA-256 of the versioned canonical ordered package-image record. It includes
+	all normalized entry semantics and regular-content identities but excludes
+	archive transport and higher-layer package facts.
+
+*archive_inspection_receipt_identity*
+	SHA-256 of the versioned receipt record binding backend schema, complete
+	archive digest, package-image identity, and entry count.
+
+The types are not implicitly substitutable. Canonical text is
+*v1:sha256:<lowercase-hex>*. Higher-level identity records encode the digest
+representation version, algorithm identifier, result length, and result bytes.
+
+# PACKAGE IMAGE RECORD
+
+Version 1 begins with *libpkgimage.package-image.v1*. It uses explicit
+big-endian integers and length-prefixed byte strings. Archive order and
+image-local ordinals are preserved. Native C++ object representation is never
+serialized.
+
+# INSPECTION RECEIPT
+
+A successful *archive_inspection_receipt* records:
+
+- receipt schema version;
+- archive backend semantic identity;
+- complete archive digest;
+- package-image identity;
+- entry count; and
+- receipt identity.
+
+The pathname is diagnostic only and participates in no identity. The receipt
+does not certify package naming, provenance, signatures, trust, candidate
+selection, or installation acceptance.
+
+# ERRORS
+
+Malformed representations raise *invalid_digest_error*. Unsupported algorithms
+raise *unsupported_digest_algorithm_error*. Invalid receipt invariants raise
+*invalid_receipt_error*. An expected exact archive digest mismatch raises
+*complete_archive_digest_mismatch_error* with typed expected and observed
+values.
+
+# SEE ALSO
+
+*libpkgimage*(3), *pkgimage_model*(3), *pkgimage_archive*(3),
+*pkgimage_replay*(3)

@@ -26,6 +26,7 @@ check_page()
 
 check_page man/libpkgimage.3.scdoc LIBPKGIMAGE\(3\)
 check_page man/pkgimage_model.3.scdoc PKGIMAGE_MODEL\(3\)
+check_page man/pkgimage_identity.3.scdoc PKGIMAGE_IDENTITY\(3\)
 check_page man/pkgimage_archive.3.scdoc PKGIMAGE_ARCHIVE\(3\)
 check_page man/pkgimage_replay.3.scdoc PKGIMAGE_REPLAY\(3\)
 check_page man/pkgimage_libarchive_backend.3.scdoc \
@@ -38,6 +39,14 @@ grep -F 'parse, write, compare, or update _.footprint_ files' \
 grep -F 'Replay is not rollback-capable.' \
   "$source_root/REPLAY.md" >/dev/null ||
   fail "replay contract omits partial-consumption warning"
+
+grep -F 'v1:sha256:<lowercase-hex>' \
+  "$source_root/man/pkgimage_identity.3.scdoc" >/dev/null ||
+  fail "identity manual omits canonical digest representation"
+
+grep -F 'not a claim that a mutable' \
+  "$source_root/BACKENDS.md" >/dev/null ||
+  fail "backend contract overstates retained-source stability"
 
 grep -F 'begin(entry)' "$source_root/man/pkgimage_replay.3.scdoc" >/dev/null ||
   fail "replay manual omits begin event"
@@ -74,6 +83,7 @@ done
 
 for document in \
   DESIGN.md \
+  IDENTITY.md \
   REPLAY.md \
   BACKENDS.md \
   INTEGRATION.md \
@@ -88,6 +98,7 @@ done
 for page in \
   'libpkgimage(3)' \
   'pkgimage_model(3)' \
+  'pkgimage_identity(3)' \
   'pkgimage_archive(3)' \
   'pkgimage_replay(3)' \
   'pkgimage_libarchive_backend(3)'

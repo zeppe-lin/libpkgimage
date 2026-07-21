@@ -13,7 +13,9 @@ It owns:
 archive path normalization
 entry type and metadata normalization
 ordered image validation
-stable entry identity
+regular-content identity
+package-image identity
+archive-inspection evidence
 selected payload replay
 ```
 
@@ -32,6 +34,7 @@ archive_backend
       v
 package_archive
       |-- package_image
+      |-- archive_inspection_receipt
       `-- payload replay
 ```
 
@@ -90,6 +93,7 @@ mtime nanoseconds
 optional symlink target
 optional hardlink target
 optional device number
+mandatory regular-content digest for regular entries
 ```
 
 Supported entry types are:
@@ -148,6 +152,14 @@ Hard links:
 * require the target path to exist in the same image; and
 * require the target entry to be regular.
 
+Payload identity:
+
+* every regular entry requires one decoded-content digest;
+* every non-regular entry rejects a regular-content digest;
+* hard links retain target-path semantics and carry no independent payload
+  digest; and
+* the empty regular file identifies the empty byte sequence.
+
 Payload size:
 
 * is meaningful only for regular entries; and
@@ -201,3 +213,29 @@ For the same normalized archive contents:
 * replay event order is archive order.
 
 The library does not sort archives into pathname order.
+
+Content and image identity
+--------------------------
+
+Every regular entry carries a `regular_content_digest` over its decoded bytes.
+No non-regular entry may carry one. Empty regular files identify the empty byte
+sequence. Hard links remain link entries and cite a regular target path rather
+than duplicating its content identity.
+
+`package_image::identity()` is SHA-256 over the canonical versioned record
+specified in `IDENTITY.md`. The record preserves archive order and contains all
+normalized semantics, including regular-content identities. It excludes archive
+transport, backend identity, source pathname, package release identity,
+provider facts, installed state, and target observations.
+
+Inspection evidence
+-------------------
+
+A successful inspection returns an immutable image together with an
+`archive_inspection_receipt`. The receipt binds the complete digest of the exact
+retained archive bytes, the backend semantic identity, the inspection schema,
+the image identity, and the entry count.
+
+A receipt reports what was inspected and produced. It does not establish
+artifact provenance, signature validity, trust, candidate acceptance, or
+installation policy.

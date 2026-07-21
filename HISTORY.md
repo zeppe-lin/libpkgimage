@@ -49,3 +49,18 @@ The documentation reconstruction added:
 * independent public-header tests;
 * documentation consistency tests; and
 * CI gates for scdoc and Doxygen.
+
+0.3 series
+----------
+
+The 0.3 series seals archive truth:
+
+* typed complete-archive, regular-content, image, and receipt identities;
+* streaming SHA-256 through private libcrypto integration;
+* canonical package-image identity version 1;
+* exact retained-source hashing;
+* immutable archive-inspection receipts;
+* receipt-bearing inspection results;
+* image-bound entry selections;
+* replay-time regular-content verification; and
+* explicit ABI generation 1.

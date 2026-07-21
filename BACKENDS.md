@@ -13,17 +13,23 @@ The public interface is:
 
 ```cpp
 std::unique_ptr<package_archive>
+open(const archive_inspection_request& request) const;
+
+std::unique_ptr<package_archive>
 open(const std::filesystem::path& filename) const;
 
-package_image
+inspected_package_image
+inspect(const archive_inspection_request& request) const;
+
+inspected_package_image
 inspect(const std::filesystem::path& filename) const;
 ```
 
 `open()` retains stable payload access.
 
-`inspect()` is a convenience operation that opens the archive, copies the
-immutable image, and releases the stable source handle. The returned image
-contains no replay capability.
+`inspect()` returns a validated `inspected_package_image` containing the
+immutable image and its archive-inspection receipt before releasing replay
+access. The public API never returns a bare image from inspection.
 
 A backend must not expose archive-library handles or types through the public
 API.
@@ -38,7 +44,10 @@ A backend is responsible for:
 * mapping archive pathnames to `package_path`;
 * mapping supported entry types;
 * normalizing numeric metadata;
-* constructing a validated `package_image`;
+* streaming every regular payload and computing its content identity;
+* constructing and identifying a validated `package_image`;
+* hashing the complete retained archive source;
+* publishing an archive-inspection receipt;
 * retaining any source state required for replay; and
 * reporting source, format, decoding, and I/O failures.
 
@@ -108,6 +117,7 @@ mtime and mtime nanoseconds
 symlink target
 hardlink target
 device major and minor
+regular-content digest for every regular entry
 ```
 
 Negative uid, gid, size, or device numbers are rejected.
@@ -121,7 +131,14 @@ normalization.
 Source retention
 ----------------
 
-The backend retains one open descriptor and one inspected source stamp.
+The backend retains one open descriptor, one inspected source stamp, and the
+complete digest of the bytes read through that descriptor. Inspection hashes
+the retained source before and after archive decoding. Replay checks the same
+sealed bytes around transport and verifies selected decoded content before
+`end(entry)`.
+
+This is a documented mutation-detection boundary, not a claim that a mutable
+open regular file has become adversarially immutable.
 
 See `REPLAY.md` and `pkgimage_replay(3)` for replay and source-change
 semantics.

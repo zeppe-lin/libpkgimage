@@ -70,8 +70,9 @@ The backend records:
 - regular-file size;
 - modification time and nanoseconds;
 - symbolic-link target;
-- hard-link target; and
-- device major and minor.
+- hard-link target;
+- device major and minor; and
+- decoded regular-content digest for every regular entry.
 
 Negative uid, gid, size, or device numbers are rejected.
 
@@ -90,6 +91,19 @@ stamp. During replay, every normalized archive header must match the inspected
 entry at the same archive position.
 
 Source or manifest change raises *pkgimage::source_changed_error*.
+
+
+# ARCHIVE IDENTITY
+
+The backend hashes every byte of the retained source before and after archive
+decoding. It streams every regular payload through SHA-256 while validating its
+decoded byte count. Its semantic backend identity is
+*libpkgimage.libarchive.tar.v1* and no libarchive type appears in public
+headers.
+
+The retained descriptor remains mutable. Source stamps, complete-byte checks,
+normalized headers, and selected-content identities define the actual detection
+boundary; they are not a claim of adversarial immutability.
 
 # PATHNAME CHANGES
 

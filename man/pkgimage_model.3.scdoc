@@ -63,8 +63,8 @@ block_device
 ```
 
 *pkgimage::package_entry* contains one path, type, image-local identifier,
-mode, numeric uid and gid, regular-file size, modification time, and optional
-type-specific data.
+mode, numeric uid and gid, regular-file size, modification time, optional
+type-specific data, and a mandatory decoded-content digest for regular entries.
 
 Symlink targets are retained as uninterpreted line-safe strings. The library
 does not resolve them against an installation root.
@@ -95,6 +95,7 @@ entries()
 size()
 entry(id)
 find(path)
+identity()
 ```
 
 # TYPE INVARIANTS
@@ -105,7 +106,8 @@ bytes.
 Hard links require a non-self target present in the same image. The target
 entry must be regular.
 
-Only regular entries may carry non-zero payload size.
+Only regular entries may carry payload size or regular-content identity. Every
+regular entry must carry exactly one regular-content identity.
 
 Character and block devices require a device number. Other entry types must
 not carry one.
@@ -130,4 +132,5 @@ archive order.
 
 # SEE ALSO
 
-*libpkgimage*(3), *pkgimage_archive*(3), *pkgimage_replay*(3)
+*libpkgimage*(3), *pkgimage_identity*(3), *pkgimage_archive*(3),
+*pkgimage_replay*(3)

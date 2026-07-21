@@ -2,7 +2,7 @@ PKGIMAGE_ARCHIVE(3)
 
 # NAME
 
-pkgimage_archive - archive backends and stable inspected archives
+pkgimage_archive - receipt-bearing archive inspection and stable replay access
 
 # SYNOPSIS
 
@@ -13,73 +13,41 @@ pkgimage_archive - archive backends and stable inspected archives
 
 # ARCHIVE BACKEND
 
-*pkgimage::archive_backend* separates archive transport from normalized package
-semantics.
-
 ```
 std::unique_ptr<package_archive>
-open(const std::filesystem::path& filename) const;
+open(const archive_inspection_request&) const;
 
-package_image
-inspect(const std::filesystem::path& filename) const;
+inspected_package_image
+inspect(const archive_inspection_request&) const;
 ```
 
-*open()*
-	Open, inspect, and retain a stable archive source. Return an immutable
-	image plus payload replay capability.
+Path-only overloads construct a request without an expected digest.
 
-*inspect()*
-	Open the archive, copy its immutable image, and release the stable
-	source handle. The result cannot replay payloads.
-
-A backend maps its archive representation into the public *package_image*
-model and exposes no archive-library type through the public API.
+An optional expected digest is an exact-byte assertion. A mismatch raises
+*complete_archive_digest_mismatch_error*; it is not signature or trust
+verification.
 
 # PACKAGE ARCHIVE
 
-*pkgimage::package_archive* owns:
-
-- a stable source handle;
-- one immutable normalized image; and
-- backend-specific state needed for payload replay.
+A *package_archive* owns a retained source and exposes:
 
 ```
 const package_image& image() const noexcept;
+const archive_inspection_receipt& inspection_receipt() const noexcept;
 void replay(const entry_selection&, payload_sink&) const;
 ```
 
-Replay addresses entries through the inspected image. It does not extract
-files or interpret installation policy.
+# INSPECTION
 
-# BACKEND RESPONSIBILITIES
+A backend hashes the complete retained source, decodes every entry, streams and
+hashes every regular payload, validates declared sizes, constructs and
+identifies the image, creates the receipt, and revalidates source bytes before
+publishing success.
 
-A backend is responsible for:
-
-- opening and validating the source;
-- decoding archive transport;
-- normalizing paths, types, and metadata;
-- constructing a validated image;
-- retaining source state required for replay; and
-- reporting source, format, decoding, and input/output failures.
-
-A backend is not responsible for package filename identity, footprint policy,
-installation, installed state, or transaction coordination.
-
-# CONCURRENCY
-
-The abstract interface does not promise concurrent replay calls.
-
-A concrete backend may provide concurrency, but consumers must not rely on it
-unless that backend documents the guarantee.
-
-# ERRORS
-
-Source and backend failures raise *pkgimage::archive_error*.
-
-Invalid paths and normalized image contents may raise
-*pkgimage::path_error* or *pkgimage::manifest_error*.
+It exposes no archive-library type and owns no package identity, trust,
+installation, installed-state, or transaction policy.
 
 # SEE ALSO
 
-*libpkgimage*(3), *pkgimage_model*(3), *pkgimage_replay*(3),
-*pkgimage_libarchive_backend*(3)
+*libpkgimage*(3), *pkgimage_identity*(3), *pkgimage_model*(3),
+*pkgimage_replay*(3), *pkgimage_libarchive_backend*(3)

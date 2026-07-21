@@ -17,7 +17,10 @@ target filesystem, or apply a package.
 Identity domains
 ----------------
 
-The public model keeps these domains distinct:
+The public model keeps these domains distinct. Their canonical text form is
+`v1:<algorithm>:<lowercase-hex>`. The representation version, algorithm
+identifier, byte length, and digest bytes are encoded into higher-level
+identity records so a future algorithm cannot be silently substituted.
 
 ```text
 complete_archive_digest

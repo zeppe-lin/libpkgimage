@@ -14,6 +14,8 @@ The suite must establish:
 * deterministic identifiers;
 * duplicate rejection;
 * hard-link invariants;
+* typed digest representation and known-answer vectors;
+* package-image and receipt identity determinism;
 * selection binding;
 * backend normalization;
 * payload event ordering;
@@ -94,7 +96,9 @@ Libarchive tests cover:
 * archive-order retention;
 * duplicate paths;
 * regular-file source enforcement;
-* malformed and truncated archives; and
+* zero-length, malformed, and truncated archives;
+* exact complete-archive identity, including trailing bytes;
+* expected exact-byte digest assertions; and
 * inspect-versus-open behavior.
 
 Replay tests
@@ -116,7 +120,9 @@ Replay tests cover:
 * pathname unlinking after open;
 * metadata-only source changes;
 * in-place source changes before replay;
-* source changes during replay; and
+* source changes during replay;
+* same-size content mutation during replay;
+* typed content-mismatch evidence before `end()`; and
 * partial consumption before late failure.
 
 Public-header tests
@@ -172,3 +178,25 @@ replay branch, or observable error requires:
 3. documentation in the relevant contract document;
 4. manual-page coverage; and
 5. deterministic-order tests where ordering is observable.
+
+Identity and receipt tests
+--------------------------
+
+The identity suite additionally covers:
+
+* known SHA-256 vectors;
+* versioned lowercase digest serialization;
+* malformed versions, algorithms, lengths, and hexadecimal bytes;
+* mandatory regular-content identity and hard-link non-duplication;
+* hardcoded canonical package-image and receipt identities;
+* every normalized image field and archive-order sensitivity;
+* equal image identity across different compression encodings;
+* different complete-archive and receipt identities across those encodings;
+* pathname-independent identity;
+* complete-archive sensitivity to unparsed trailing bytes;
+* expected exact-byte digest mismatch with typed expected and actual values;
+* selection binding to image and content identities;
+* replay-time content verification before `end()`;
+* public-header dependency isolation;
+* shared/static dependency closure; and
+* equal golden identities under GCC and Clang.

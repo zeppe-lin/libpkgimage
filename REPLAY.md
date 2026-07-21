@@ -45,9 +45,10 @@ entry_selection::from_ids(image, ids)
 * duplicate identifiers; and
 * identifiers naming non-regular entries.
 
-A selection records the source image width plus the selected entry identifiers
-and paths. Before replay, `validate()` checks that the target image still
-contains equivalent selected regular objects.
+A selection records the package-image identity plus the selected entry
+identifiers, paths, and regular-content identities. Before replay, `validate()`
+requires the same sealed image identity. Equivalent immutable copies remain
+valid; a same-width image with matching paths but different content is rejected.
 
 Selection input order does not determine replay order. Replay always follows
 archive order.
@@ -102,11 +103,13 @@ During replay it:
 3. decodes entries in archive order;
 4. normalizes each current header;
 5. compares it with the corresponding inspected entry;
-6. emits selected payload bytes;
+6. hashes and emits selected payload bytes;
 7. verifies declared payload sizes;
-8. verifies image and selected-entry counts;
-9. closes the archive reader; and
-10. verifies the retained source stamp again.
+8. verifies each selected payload against its inspection-time content digest
+   before `end(entry)`;
+9. verifies image and selected-entry counts;
+10. closes the archive reader; and
+11. verifies the retained source stamp and complete archive digest again.
 
 A changed header, entry count, payload size, or retained source stamp is
 reported rather than accepted as the inspected image.

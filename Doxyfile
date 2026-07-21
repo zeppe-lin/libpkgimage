@@ -80,7 +80,7 @@ WARN_NO_PARAMDOC       = YES
 WARN_AS_ERROR          = FAIL_ON_WARNINGS
 WARN_LOGFILE           =
 INPUT                   = include/libpkgimage README.md DESIGN.md REPLAY.md \
-                          BACKENDS.md INTEGRATION.md TESTING.md HISTORY.md
+                          IDENTITY.md BACKENDS.md INTEGRATION.md TESTING.md HISTORY.md
 INPUT_ENCODING          = UTF-8
 FILE_PATTERNS           = *.h *.md
 RECURSIVE               = YES

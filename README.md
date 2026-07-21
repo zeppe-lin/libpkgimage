@@ -10,6 +10,9 @@ It provides:
 * typed archive entries;
 * ordered and validated package images;
 * stable entry identifiers;
+* typed complete-archive and regular-content digests;
+* canonical package-image identities;
+* immutable archive-inspection receipts;
 * immutable regular-file selections;
 * backend-neutral payload sinks;
 * stable inspected archive objects; and
@@ -18,10 +21,13 @@ It provides:
 The central distinction is:
 
 ```text
-package archive bytes
+exact package archive bytes
         |
         v
-pkgimage::package_image       archive truth
+archive inspection
+        |-- immutable package_image
+        |-- package_image_identity
+        `-- archive_inspection_receipt
 ```
 
 A package image states what an archive contains. It does not state what is
@@ -52,10 +58,9 @@ archive_backend::open()
           |
           v
     package_archive
-      |          |
-      |          `-- replay(entry_selection, payload_sink)
-      |
-      `------------- immutable package_image
+      |-- immutable package_image
+      |-- archive_inspection_receipt
+      `-- replay(entry_selection, payload_sink)
 ```
 
 Important invariants:
@@ -73,12 +78,15 @@ Important invariants:
 
 The libarchive backend retains an open descriptor for the inspected regular
 file. Pathname replacement or unlinking does not redirect later replay to a
-different inode. Byte-relevant changes to the retained source are detected
-before, during, or after replay and reported as `source_changed_error`.
+different inode. Source stamps, complete-byte checks around replay, normalized
+header comparison, and selected-content identities enforce the documented
+retained-source boundary. The library does not claim adversarial immutability
+for a mutable open file descriptor.
 
 See:
 
 * `DESIGN.md` for the package path, entry, image, and error contracts;
+* `IDENTITY.md` for archive, content, image, and receipt identity records;
 * `REPLAY.md` for selection, sink, and source-stability semantics;
 * `BACKENDS.md` for archive backend and libarchive behavior;
 * `INTEGRATION.md` for boundaries with footprints, build, and installed state;
@@ -92,6 +100,7 @@ The installed manual suite is:
 
 * `libpkgimage(3)` — library overview and boundaries;
 * `pkgimage_model(3)` — paths, entries, images, and identifiers;
+* `pkgimage_identity(3)` — digest domains and inspection evidence;
 * `pkgimage_archive(3)` — archive backends and inspected archives;
 * `pkgimage_replay(3)` — selections, payload sinks, and partial consumption;
 * `pkgimage_libarchive_backend(3)` — tar backend and source-stability rules.
@@ -105,7 +114,8 @@ Build-time requirements:
 * Meson 1.2.0 or later;
 * Ninja;
 * pkg-config; and
-* libarchive headers and library.
+* libarchive headers and library;
+* OpenSSL libcrypto headers and library.
 
 Optional documentation dependencies:
 
@@ -186,6 +196,9 @@ public:
 
 pkgimage::libarchive_backend backend;
 auto archive = backend.open("example#1.0-1.pkg.tar.xz");
+
+std::cout << archive->inspection_receipt().archive_digest().string() << '\n';
+std::cout << archive->image().identity().string() << '\n';
 
 for (const pkgimage::package_entry& entry : archive->image().entries())
   std::cout << entry.id << ' ' << entry.path << '\n';
