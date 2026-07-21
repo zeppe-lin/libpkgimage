@@ -81,6 +81,12 @@ public:
 /*!
  * \brief Reports that an opened archive source changed after inspection.
  */
+/*! \brief Reports decoded payload length inconsistent with its archive header. */
+class declared_size_mismatch_error final : public archive_error {
+public:
+  using archive_error::archive_error;
+};
+
 class source_changed_error final : public archive_error {
 public:
   using archive_error::archive_error;

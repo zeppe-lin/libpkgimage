@@ -4,6 +4,8 @@
 #include <libpkgimage/error.h>
 #include <libpkgimage/libarchive_backend.h>
 
+#include "sha256.h"
+
 #include <archive.h>
 #include <archive_entry.h>
 
@@ -168,6 +170,45 @@ open_source(const std::filesystem::path& filename)
   }
 
   return fd_handle(fd);
+}
+
+[[nodiscard]] complete_archive_digest
+hash_source(int fd, const source_stamp& stamp,
+            const std::filesystem::path& filename)
+{
+  detail::sha256_context hash;
+  std::array<unsigned char, 64U * 1024U> buffer {};
+  std::uint64_t offset = 0;
+
+  while (offset < stamp.size)
+  {
+    const std::size_t request = static_cast<std::size_t>(
+        std::min<std::uint64_t>(stamp.size - offset, buffer.size()));
+    ssize_t count;
+    do
+    {
+      count = pread(fd, buffer.data(), request, static_cast<off_t>(offset));
+    }
+    while (count == -1 && errno == EINTR);
+
+    if (count == -1)
+    {
+      throw archive_error(
+          "could not hash package archive '" + filename.string()
+          + "': " + std::strerror(errno));
+    }
+    if (count == 0)
+    {
+      throw source_changed_error(
+          "package archive source was truncated while hashing: '"
+          + filename.string() + "'");
+    }
+
+    hash.update(buffer.data(), static_cast<std::size_t>(count));
+    offset += static_cast<std::uint64_t>(count);
+  }
+
+  return complete_archive_digest::from_sha256(hash.finish());
 }
 
 [[noreturn]] void
@@ -388,18 +429,54 @@ inspect_source(int fd, const source_stamp& stamp,
   archive_handle handle = open_reader(source, filename);
 
   std::vector<package_entry> entries;
+  std::array<unsigned char, 64U * 1024U> payload {};
   archive_entry* raw = nullptr;
   int status = ARCHIVE_OK;
 
   while ((status = archive_read_next_header(handle.get(), &raw)) == ARCHIVE_OK)
   {
-    entries.push_back(normalize_entry(raw));
+    package_entry entry = normalize_entry(raw);
 
-    if (archive_read_data_skip(handle.get()) != ARCHIVE_OK)
+    if (entry.type == entry_type::regular)
+    {
+      detail::sha256_context content_hash;
+      std::uint64_t total = 0;
+      la_ssize_t count;
+      while ((count = archive_read_data(
+                  handle.get(), payload.data(), payload.size())) > 0)
+      {
+        const std::uint64_t bytes = static_cast<std::uint64_t>(count);
+        if (bytes > entry.size - total)
+        {
+          throw declared_size_mismatch_error(
+              "package payload exceeds declared size for '"
+              + entry.path.string() + "'");
+        }
+        content_hash.update(payload.data(), static_cast<std::size_t>(count));
+        total += bytes;
+      }
+
+      if (count < 0)
+      {
+        backend_error(
+            handle.get(), filename, "could not read package payload");
+      }
+      if (total != entry.size)
+      {
+        throw declared_size_mismatch_error(
+            "package payload size mismatch for '" + entry.path.string() + "'");
+      }
+
+      entry.regular_content = regular_content_digest::from_sha256(
+          content_hash.finish());
+    }
+    else if (archive_read_data_skip(handle.get()) != ARCHIVE_OK)
     {
       backend_error(
           handle.get(), filename, "could not skip package payload");
     }
+
+    entries.push_back(std::move(entry));
   }
 
   if (status != ARCHIVE_EOF)
@@ -423,15 +500,35 @@ verify_source(int fd, const source_stamp& expected,
   }
 }
 
+[[nodiscard]] bool
+same_entry_header(const package_entry& actual,
+                  const package_entry& expected) noexcept
+{
+  return actual.id == expected.id
+      && actual.path == expected.path
+      && actual.type == expected.type
+      && actual.mode == expected.mode
+      && actual.uid == expected.uid
+      && actual.gid == expected.gid
+      && actual.size == expected.size
+      && actual.mtime == expected.mtime
+      && actual.mtime_nanoseconds == expected.mtime_nanoseconds
+      && actual.symlink_target == expected.symlink_target
+      && actual.hardlink_target == expected.hardlink_target
+      && actual.device == expected.device;
+}
+
 class libarchive_package final : public package_archive {
 public:
   libarchive_package(std::filesystem::path filename,
                      fd_handle source,
                      source_stamp stamp,
+                     complete_archive_digest archive_digest,
                      package_image image)
       : filename_(std::move(filename)),
         source_(std::move(source)),
         stamp_(stamp),
+        archive_digest_(std::move(archive_digest)),
         image_(std::move(image))
   {
   }
@@ -469,7 +566,7 @@ public:
 
       package_entry actual = normalize_entry(raw);
       actual.id = index;
-      if (actual != *expected)
+      if (!same_entry_header(actual, *expected))
       {
         throw source_changed_error(
             "package archive manifest changed during replay at '"
@@ -488,7 +585,7 @@ public:
           const auto bytes = static_cast<std::uint64_t>(count);
           if (bytes > expected->size - total)
           {
-            throw archive_error(
+            throw declared_size_mismatch_error(
                 "package payload exceeds declared size for '"
                 + expected->path.string() + "'");
           }
@@ -508,7 +605,7 @@ public:
 
         if (total != expected->size)
         {
-          throw archive_error(
+          throw declared_size_mismatch_error(
               "package payload size mismatch for '"
               + expected->path.string() + "'");
         }
@@ -545,6 +642,7 @@ private:
   std::filesystem::path filename_;
   fd_handle source_;
   source_stamp stamp_;
+  complete_archive_digest archive_digest_;
   package_image image_;
 };
 
@@ -555,11 +653,25 @@ libarchive_backend::open(const std::filesystem::path& filename) const
 {
   fd_handle source = open_source(filename);
   const source_stamp before = read_source_stamp(source.get(), filename);
+  const complete_archive_digest archive_digest =
+      hash_source(source.get(), before, filename);
+  verify_source(source.get(), before, filename);
+
   package_image image = inspect_source(source.get(), before, filename);
   verify_source(source.get(), before, filename);
 
+  const complete_archive_digest after_digest =
+      hash_source(source.get(), before, filename);
+  verify_source(source.get(), before, filename);
+  if (archive_digest != after_digest)
+  {
+    throw source_changed_error(
+        "package archive source changed during inspection: '"
+        + filename.string() + "'");
+  }
+
   return std::make_unique<libarchive_package>(
-      filename, std::move(source), before, std::move(image));
+      filename, std::move(source), before, archive_digest, std::move(image));
 }
 
 } // namespace pkgimage

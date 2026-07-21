@@ -167,6 +167,10 @@ main()
   CHECK(image.entries()[1].path.string() == "etc/example/file.conf");
   CHECK(image.entries()[1].type == entry_type::regular);
   CHECK(image.entries()[1].size == 8);
+  CHECK(image.entries()[1].regular_content.has_value());
+  CHECK(image.entries()[1].regular_content->string()
+        == "sha256:1e6c40f2abc83e89f48c8825a08aa12c"
+           "77263fc596ede8096c11fa917f41e925");
   CHECK(image.entries()[2].type == entry_type::symlink);
   CHECK(image.entries()[2].symlink_target
         == "../../etc/example/file.conf");
