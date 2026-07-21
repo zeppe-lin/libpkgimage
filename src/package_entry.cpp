@@ -40,7 +40,8 @@ operator==(const package_entry& lhs, const package_entry& rhs) noexcept
       && lhs.mtime_nanoseconds == rhs.mtime_nanoseconds
       && lhs.symlink_target == rhs.symlink_target
       && lhs.hardlink_target == rhs.hardlink_target
-      && lhs.device == rhs.device;
+      && lhs.device == rhs.device
+      && lhs.regular_content == rhs.regular_content;
 }
 
 bool

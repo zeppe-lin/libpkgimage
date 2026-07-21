@@ -29,8 +29,26 @@ public:
 };
 
 /*!
- * \brief Reports a package path that cannot be normalized safely.
+ * \brief Base class for digest representation and computation failures.
  */
+class digest_error : public error {
+public:
+  using error::error;
+};
+
+/*! \brief Reports malformed caller-supplied digest syntax. */
+class invalid_digest_error final : public digest_error {
+public:
+  using digest_error::digest_error;
+};
+
+/*! \brief Reports a digest algorithm not supported by this build. */
+class unsupported_digest_algorithm_error final : public digest_error {
+public:
+  using digest_error::digest_error;
+};
+
+/*! \brief Reports a package path that cannot be normalized safely. */
 class path_error final : public error {
 public:
   using error::error;

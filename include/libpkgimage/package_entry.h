@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 
+#include <libpkgimage/digest.h>
 #include <libpkgimage/package_path.h>
 
 namespace pkgimage {
@@ -90,6 +91,7 @@ struct package_entry final {
   std::optional<std::string> symlink_target;  //!< Raw symbolic-link target.
   std::optional<pkgimage::package_path> hardlink_target; //!< Canonical target.
   std::optional<device_number> device;        //!< Device-node identifier.
+  std::optional<regular_content_digest> regular_content; //!< Decoded bytes.
 };
 
 /*!

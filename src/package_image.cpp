@@ -68,6 +68,18 @@ validate_entry(const package_entry& entry)
         "non-regular entry has payload size: '" + entry.path.string() + "'");
   }
 
+  if (entry.type == entry_type::regular && !entry.regular_content)
+  {
+    throw manifest_error(
+        "regular entry has no content identity: '" + entry.path.string() + "'");
+  }
+  if (entry.type != entry_type::regular && entry.regular_content)
+  {
+    throw manifest_error(
+        "non-regular entry has a content identity: '"
+        + entry.path.string() + "'");
+  }
+
   const bool is_device = entry.type == entry_type::character_device
                       || entry.type == entry_type::block_device;
   if (is_device && !entry.device)

@@ -7,6 +7,8 @@ libpkgimage = library(
   'pkgimage',
   [
     'error.cpp',
+    'digest.cpp',
+    'sha256.cpp',
     'package_path.cpp',
     'package_entry.cpp',
     'package_image.cpp',
@@ -16,7 +18,7 @@ libpkgimage = library(
   ],
   cpp_args: ['-D_FILE_OFFSET_BITS=64'],
   include_directories: public_inc,
-  dependencies: libarchive_dep,
+  dependencies: [libarchive_dep, libcrypto_dep],
   install: true,
   version: meson.project_version(),
   soversion: '0',
@@ -25,7 +27,7 @@ libpkgimage = library(
 libpkgimage_dep = declare_dependency(
   link_with: libpkgimage,
   include_directories: public_inc,
-  dependencies: libarchive_dep,
+  dependencies: [libarchive_dep, libcrypto_dep],
   compile_args: ['-D_FILE_OFFSET_BITS=64'],
 )
 
@@ -34,6 +36,7 @@ meson.override_dependency('libpkgimage', libpkgimage_dep)
 install_headers(
   '../include/libpkgimage/libpkgimage.h',
   '../include/libpkgimage/error.h',
+  '../include/libpkgimage/digest.h',
   '../include/libpkgimage/package_path.h',
   '../include/libpkgimage/package_entry.h',
   '../include/libpkgimage/package_image.h',
@@ -51,5 +54,5 @@ pkgconf.generate(
   filebase: 'libpkgimage',
   description: 'Normalized package image and payload access library',
   subdirs: '.',
-  requires_private: ['libarchive'],
+  requires_private: ['libarchive', 'libcrypto'],
 )

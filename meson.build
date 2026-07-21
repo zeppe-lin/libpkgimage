@@ -22,6 +22,12 @@ if (library_kind == 'static') != want_static
   error('default_library and link_mode must both select shared or static')
 endif
 
+libcrypto_dep = dependency(
+  'libcrypto',
+  required: true,
+  static: want_static,
+)
+
 libarchive_dep = dependency(
   'libarchive',
   required: true,

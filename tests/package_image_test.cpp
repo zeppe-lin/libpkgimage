@@ -14,6 +14,7 @@ using pkgimage::manifest_error;
 using pkgimage::package_entry;
 using pkgimage::package_image;
 using pkgimage::package_path;
+using pkgimage::regular_content_digest;
 
 namespace {
 
@@ -21,6 +22,9 @@ package_entry
 entry(const char* path, entry_type type)
 {
   package_entry result(package_path::parse(path), type);
+  if (type == entry_type::regular)
+    result.regular_content = regular_content_digest::parse(
+        "v1:sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
   result.mode = 0644;
   return result;
 }
@@ -78,6 +82,36 @@ main()
         entry("usr/share/data.link", entry_type::hardlink);
     link.hardlink_target = directory.path;
     package_image wrong_target({std::move(directory), std::move(link)});
+  });
+
+  check_throws<manifest_error>([] {
+    package_entry file(package_path::parse("usr/share/missing"),
+                       entry_type::regular);
+    package_image missing_content({std::move(file)});
+  });
+
+  check_throws<manifest_error>([] {
+    package_entry directory = entry("usr/share/data", entry_type::directory);
+    directory.regular_content = regular_content_digest::parse(
+        "v1:sha256:e3b0c44298fc1c149afbf4c8996fb924"
+        "27ae41e4649b934ca495991b7852b855");
+    package_image unexpected_content({std::move(directory)});
+  });
+
+  check_throws<manifest_error>([] {
+    package_entry file = entry("usr/share/data", entry_type::regular);
+    package_entry link = entry("usr/share/data.link", entry_type::hardlink);
+    link.hardlink_target = file.path;
+    link.regular_content = regular_content_digest::parse(
+        "v1:sha256:e3b0c44298fc1c149afbf4c8996fb924"
+        "27ae41e4649b934ca495991b7852b855");
+    package_image hardlink_content({std::move(file), std::move(link)});
+  });
+
+  check_throws<manifest_error>([] {
+    package_entry invalid = entry("usr/share/invalid", entry_type::fifo);
+    invalid.type = static_cast<entry_type>(255);
+    package_image unsupported_type({std::move(invalid)});
   });
 
   check_throws<manifest_error>([] {

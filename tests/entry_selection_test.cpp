@@ -14,6 +14,7 @@ using pkgimage::entry_type;
 using pkgimage::package_entry;
 using pkgimage::package_image;
 using pkgimage::package_path;
+using pkgimage::regular_content_digest;
 using pkgimage::selection_error;
 
 namespace {
@@ -21,7 +22,11 @@ namespace {
 package_entry
 entry(const char* path, entry_type type)
 {
-  return package_entry(package_path::parse(path), type);
+  package_entry result(package_path::parse(path), type);
+  if (type == entry_type::regular)
+    result.regular_content = regular_content_digest::parse(
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+  return result;
 }
 
 } // namespace

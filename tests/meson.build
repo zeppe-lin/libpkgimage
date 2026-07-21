@@ -4,6 +4,13 @@
 if get_option('tests').allowed()
   sh = find_program('sh')
 
+  digest_test = executable(
+    'digest-test',
+    'digest_test.cpp',
+    dependencies: libpkgimage_dep,
+  )
+  test('validate typed digests', digest_test)
+
   package_path_test = executable(
     'package-path-test',
     'package_path_test.cpp',
@@ -49,6 +56,7 @@ if get_option('tests').allowed()
   public_headers = [
     ['libpkgimage', 'libpkgimage/libpkgimage.h'],
     ['error', 'libpkgimage/error.h'],
+    ['digest', 'libpkgimage/digest.h'],
     ['package-path', 'libpkgimage/package_path.h'],
     ['package-entry', 'libpkgimage/package_entry.h'],
     ['package-image', 'libpkgimage/package_image.h'],
