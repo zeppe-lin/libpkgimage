@@ -11,10 +11,12 @@
 namespace pkgimage {
 
 entry_selection::entry_selection(
+    package_image_identity image_identity,
     std::size_t image_size,
     std::vector<std::uint8_t> selected,
     std::vector<selected_entry> entries)
-    : image_size_(image_size),
+    : image_identity_(std::move(image_identity)),
+      image_size_(image_size),
       selected_(std::move(selected)),
       entries_(std::move(entries))
 {
@@ -68,7 +70,9 @@ entry_selection::from_ids(const package_image& image,
     }
 
     selected[id] = 1;
-    entries.push_back(selected_entry {id, entry->path});
+    entries.push_back(selected_entry {
+      id, entry->path, *entry->regular_content,
+    });
   }
 
   std::sort(
@@ -77,8 +81,8 @@ entry_selection::from_ids(const package_image& image,
         return lhs.id < rhs.id;
       });
 
-  return entry_selection(image.size(), std::move(selected),
-                         std::move(entries));
+  return entry_selection(image.identity(), image.size(),
+                         std::move(selected), std::move(entries));
 }
 
 bool
@@ -96,7 +100,7 @@ entry_selection::size() const noexcept
 void
 entry_selection::validate(const package_image& image) const
 {
-  if (image.size() != image_size_)
+  if (image.identity() != image_identity_ || image.size() != image_size_)
     throw selection_error("entry selection belongs to a different image");
 
   for (const selected_entry& selected : entries_)
@@ -104,7 +108,9 @@ entry_selection::validate(const package_image& image) const
     const package_entry* entry = image.entry(selected.id);
     if (entry == nullptr
         || entry->type != entry_type::regular
-        || entry->path != selected.path)
+        || entry->path != selected.path
+        || !entry->regular_content
+        || *entry->regular_content != selected.content_identity)
     {
       throw selection_error("entry selection belongs to a different image");
     }

@@ -500,6 +500,22 @@ verify_source(int fd, const source_stamp& expected,
   }
 }
 
+void
+verify_sealed_source(int fd, const source_stamp& expected,
+                     const complete_archive_digest& expected_digest,
+                     const std::filesystem::path& filename)
+{
+  verify_source(fd, expected, filename);
+  const complete_archive_digest actual = hash_source(fd, expected, filename);
+  verify_source(fd, expected, filename);
+  if (actual != expected_digest)
+  {
+    throw source_changed_error(
+        "package archive bytes changed after inspection: '"
+        + filename.string() + "'");
+  }
+}
+
 [[nodiscard]] bool
 same_entry_header(const package_entry& actual,
                   const package_entry& expected) noexcept
@@ -548,7 +564,8 @@ public:
               payload_sink& sink) const override
   {
     selection.validate(image_);
-    verify_source(source_.get(), stamp_, filename_);
+    verify_sealed_source(
+        source_.get(), stamp_, receipt_.archive_digest(), filename_);
 
     reader_context source {source_.get(), stamp_.size};
     archive_handle handle = open_reader(source, filename_);
@@ -583,6 +600,7 @@ public:
       {
         sink.begin(*expected);
 
+        detail::sha256_context content_hash;
         std::uint64_t total = 0;
         la_ssize_t count;
         while ((count = archive_read_data(
@@ -600,6 +618,7 @@ public:
               *expected,
               reinterpret_cast<const std::byte*>(payload.data()),
               static_cast<std::size_t>(count));
+          content_hash.update(payload.data(), static_cast<std::size_t>(count));
           total += bytes;
         }
 
@@ -614,6 +633,22 @@ public:
           throw declared_size_mismatch_error(
               "package payload size mismatch for '"
               + expected->path.string() + "'");
+        }
+
+        if (!expected->regular_content)
+        {
+          throw source_changed_error(
+              "sealed package image lost regular-content identity at '"
+              + expected->path.string() + "'");
+        }
+
+        const regular_content_digest actual_content =
+            regular_content_digest::from_sha256(content_hash.finish());
+        if (actual_content != *expected->regular_content)
+        {
+          throw regular_payload_digest_mismatch_error(
+              *expected->regular_content, actual_content,
+              expected->path.string());
         }
 
         sink.end(*expected);
@@ -641,7 +676,8 @@ public:
     if (archive_read_close(handle.get()) != ARCHIVE_OK)
       backend_error(handle.get(), filename_, "could not close package archive");
 
-    verify_source(source_.get(), stamp_, filename_);
+    verify_sealed_source(
+        source_.get(), stamp_, receipt_.archive_digest(), filename_);
   }
 
 private:

@@ -25,7 +25,7 @@ entry(const char* path, entry_type type)
   package_entry result(package_path::parse(path), type);
   if (type == entry_type::regular)
     result.regular_content = regular_content_digest::parse(
-        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        "v1:sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
   return result;
 }
 
@@ -66,6 +66,18 @@ main()
     entry("usr/share/second", entry_type::regular),
   });
   check_throws<selection_error>([&] { reversed.validate(different); });
+
+  package_entry same_path_changed =
+      entry("usr/share/first", entry_type::regular);
+  same_path_changed.regular_content = regular_content_digest::parse(
+      "v1:sha256:ca978112ca1bbdcafac231b39a23dc4d"
+      "a786eff8147c4e72b9807785afee48bb");
+  package_image changed_content({
+    entry("usr/share", entry_type::directory),
+    same_path_changed,
+    entry("usr/share/second", entry_type::regular),
+  });
+  check_throws<selection_error>([&] { reversed.validate(changed_content); });
 
   check_throws<selection_error>(
       [&] { (void)entry_selection::from_ids(image, {1, 1}); });

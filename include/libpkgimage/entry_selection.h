@@ -19,9 +19,9 @@ namespace pkgimage {
 /*!
  * \brief Immutable set of regular entries selected from a package image.
  *
- * A selection is bound to the entry identifiers, paths, and image width from
- * which it was created.  Replaying it against a different image is rejected
- * unless those selected entries still identify the same regular objects.
+ * A selection is bound to the package-image identity and retains the selected
+ * entry identifiers, paths, and regular-content identities. Equivalent copies
+ * of the same immutable image are accepted; every different image is rejected.
  */
 class entry_selection final {
 public:
@@ -66,12 +66,15 @@ private:
   struct selected_entry final {
     entry_id id;
     package_path path;
+    regular_content_digest content_identity;
   };
 
-  entry_selection(std::size_t image_size,
+  entry_selection(package_image_identity image_identity,
+                  std::size_t image_size,
                   std::vector<std::uint8_t> selected,
                   std::vector<selected_entry> entries);
 
+  package_image_identity image_identity_;
   std::size_t image_size_;
   std::vector<std::uint8_t> selected_;
   std::vector<selected_entry> entries_;

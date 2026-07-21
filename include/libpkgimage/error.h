@@ -107,6 +107,24 @@ private:
   complete_archive_digest actual_;
 };
 
+/*! \brief Reports replayed bytes inconsistent with inspection-time content. */
+class regular_payload_digest_mismatch_error final : public archive_error {
+public:
+  regular_payload_digest_mismatch_error(
+      regular_content_digest expected,
+      regular_content_digest actual,
+      std::string path);
+
+  [[nodiscard]] const regular_content_digest& expected() const noexcept;
+  [[nodiscard]] const regular_content_digest& actual() const noexcept;
+  [[nodiscard]] const std::string& path() const noexcept;
+
+private:
+  regular_content_digest expected_;
+  regular_content_digest actual_;
+  std::string path_;
+};
+
 /*! \brief Reports that an opened archive source changed after inspection. */
 class source_changed_error final : public archive_error {
 public:

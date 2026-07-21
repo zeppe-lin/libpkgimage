@@ -53,6 +53,13 @@ if get_option('tests').allowed()
   )
   test('normalize libarchive images', libarchive_backend_test)
 
+  replay_integrity_test = executable(
+    'replay-integrity-test',
+    'replay_integrity_test.cpp',
+    dependencies: libpkgimage_dep,
+  )
+  test('enforce replay integrity', replay_integrity_test)
+
   payload_replay_test = executable(
     'payload-replay-test',
     'payload_replay_test.cpp',
