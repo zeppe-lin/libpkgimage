@@ -18,6 +18,13 @@ if get_option('tests').allowed()
   )
   test('normalize package paths', package_path_test)
 
+  package_image_identity_test = executable(
+    'package-image-identity-test',
+    'package_image_identity_test.cpp',
+    dependencies: libpkgimage_dep,
+  )
+  test('identify package images', package_image_identity_test)
+
   package_image_test = executable(
     'package-image-test',
     'package_image_test.cpp',

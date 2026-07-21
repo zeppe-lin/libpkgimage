@@ -9,6 +9,7 @@ libpkgimage = library(
     'error.cpp',
     'digest.cpp',
     'sha256.cpp',
+    'identity_writer.cpp',
     'package_path.cpp',
     'package_entry.cpp',
     'package_image.cpp',

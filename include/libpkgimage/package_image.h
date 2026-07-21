@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <vector>
 
+#include <libpkgimage/digest.h>
 #include <libpkgimage/package_entry.h>
 
 namespace pkgimage {
@@ -44,6 +45,9 @@ public:
    */
   [[nodiscard]] std::size_t size() const noexcept;
 
+  /*! \brief Return the canonical identity of this normalized image. */
+  [[nodiscard]] const package_image_identity& identity() const noexcept;
+
   /*!
    * \brief Find an entry by stable image identifier.
    * \param id Entry identifier to search for.
@@ -60,7 +64,14 @@ public:
   find(const package_path& path) const noexcept;
 
 private:
+  struct construction_result;
+
+  explicit package_image(construction_result result);
+  [[nodiscard]] static construction_result
+  construct(std::vector<package_entry> entries);
+
   std::vector<package_entry> entries_;
+  package_image_identity identity_;
 };
 
 } // namespace pkgimage
