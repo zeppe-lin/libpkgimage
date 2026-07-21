@@ -109,6 +109,15 @@ if get_option('tests').allowed()
   endforeach
 
   test(
+    'verify release metadata',
+    sh,
+    args: [
+      join_paths(meson.current_source_dir(), 'release_metadata_test.sh'),
+      meson.project_source_root(),
+    ],
+  )
+
+  test(
     'verify public dependency boundary',
     sh,
     args: [

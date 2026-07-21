@@ -23,7 +23,7 @@ libpkgimage = library(
   dependencies: [libarchive_dep, libcrypto_dep],
   install: true,
   version: meson.project_version(),
-  soversion: '0',
+  soversion: '1',
 )
 
 libpkgimage_dep = declare_dependency(

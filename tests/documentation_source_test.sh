@@ -84,6 +84,7 @@ done
 for document in \
   DESIGN.md \
   IDENTITY.md \
+  ABI.md \
   REPLAY.md \
   BACKENDS.md \
   INTEGRATION.md \
