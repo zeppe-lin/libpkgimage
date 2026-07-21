@@ -10,6 +10,7 @@
 #include <archive_entry.h>
 
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -18,6 +19,7 @@
 #include <cstdlib>
 #include <unistd.h>
 
+using pkgimage::archive_error;
 using pkgimage::entry_type;
 using pkgimage::complete_archive_digest_mismatch_error;
 using pkgimage::inspected_package_image;
@@ -176,7 +178,7 @@ main()
   CHECK(image.entries()[1].size == 8);
   CHECK(image.entries()[1].regular_content.has_value());
   CHECK(image.entries()[1].regular_content->string()
-        == "sha256:1e6c40f2abc83e89f48c8825a08aa12c"
+        == "v1:sha256:1e6c40f2abc83e89f48c8825a08aa12c"
            "77263fc596ede8096c11fa917f41e925");
   CHECK(image.entries()[2].type == entry_type::symlink);
   CHECK(image.entries()[2].symlink_target
@@ -215,13 +217,49 @@ main()
   check_throws<manifest_error>(
       [&] { (void)backend.inspect(missing_hardlink_archive); });
 
-  check_throws<complete_archive_digest_mismatch_error>([&] {
+
+  const auto zero_archive = temp.file("zero.pkg.tar");
+  {
+    std::ofstream output(zero_archive, std::ios::binary);
+    CHECK(output.good());
+  }
+  check_throws<archive_error>([&] { (void)backend.inspect(zero_archive); });
+
+  const auto malformed_archive = temp.file("malformed.pkg.tar");
+  {
+    std::ofstream output(malformed_archive, std::ios::binary);
+    CHECK(output.good());
+    output << "not a tar archive";
+  }
+  check_throws<archive_error>(
+      [&] { (void)backend.inspect(malformed_archive); });
+
+  const auto truncated_archive = temp.file("truncated.pkg.tar");
+  std::filesystem::copy_file(valid_archive, truncated_archive);
+  std::filesystem::resize_file(
+      truncated_archive, std::filesystem::file_size(truncated_archive) / 2);
+  check_throws<archive_error>(
+      [&] { (void)backend.inspect(truncated_archive); });
+
+  bool caught_digest_mismatch = false;
+  try
+  {
     pkgimage::archive_inspection_request request {valid_archive,
       pkgimage::complete_archive_digest::parse(
-          "sha256:00000000000000000000000000000000"
+          "v1:sha256:00000000000000000000000000000000"
           "00000000000000000000000000000000")};
     (void)backend.inspect(request);
-  });
+  }
+  catch (const complete_archive_digest_mismatch_error& error)
+  {
+    caught_digest_mismatch = true;
+    CHECK(error.expected().string()
+          == "v1:sha256:00000000000000000000000000000000"
+             "00000000000000000000000000000000");
+    CHECK(error.actual() == inspected.receipt().archive_digest());
+  }
+  CHECK(caught_digest_mismatch);
 
+  CHECK(!image.entries()[3].regular_content.has_value());
   return EXIT_SUCCESS;
 }

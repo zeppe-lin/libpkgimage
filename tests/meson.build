@@ -4,6 +4,13 @@
 if get_option('tests').allowed()
   sh = find_program('sh')
 
+  archive_identity_test = executable(
+    'archive-identity-test',
+    'archive_identity_test.cpp',
+    dependencies: libpkgimage_dep,
+  )
+  test('qualify archive identities', archive_identity_test)
+
   inspection_receipt_test = executable(
     'inspection-receipt-test',
     'inspection_receipt_test.cpp',
@@ -100,6 +107,15 @@ if get_option('tests').allowed()
     )
     test('compile public header ' + header[1], public_header_test)
   endforeach
+
+  test(
+    'verify public dependency boundary',
+    sh,
+    args: [
+      join_paths(meson.current_source_dir(), 'public_dependency_test.sh'),
+      meson.project_source_root(),
+    ],
+  )
 
   test(
     'verify documentation source contracts',
